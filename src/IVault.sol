@@ -81,5 +81,5 @@ interface IVault {
     function getCurrentRewardRate(address _token) external view returns(uint256, uint256);
     function getClaimQueueInfo(uint256 _index) external view returns(ClaimItem memory);
     function getClaimQueueIDs(address _user, address _token) external view returns(uint256[] memory);
-    function getTVL() external view returns(uint256);
+    function getTVL(address _token) external view returns(uint256);
 }

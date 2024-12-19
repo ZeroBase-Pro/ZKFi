@@ -11,7 +11,7 @@ import "./utils.sol";
 contract Vault is Pausable, AccessControl, IVault {
     using SafeERC20 for IERC20;
 
-    uint256 private tvl;
+    mapping(address => uint256) private tvl;
 
     // Supported tokens list
     mapping(address => bool) public supportedTokens;
@@ -132,7 +132,7 @@ contract Vault is Pausable, AccessControl, IVault {
         );
         unchecked {
             assetsInfo.stakedAmount += _stakedAmount;
-            tvl += _stakedAmount;
+            tvl[_token] += _stakedAmount;
         }
 
         emit Stake(msg.sender, _token, _stakedAmount);
@@ -220,7 +220,7 @@ contract Vault is Pausable, AccessControl, IVault {
                 break;
             }
         }
-        tvl -= claimItem.principalAmount;
+        tvl[token] -= claimItem.principalAmount;
 
         assetsInfo.claimHistory.push(
             ClaimItem({
@@ -573,8 +573,8 @@ contract Vault is Pausable, AccessControl, IVault {
         return claimQueue[_index];
     }
 
-    function getTVL() external view returns(uint256){
-        return tvl;
+    function getTVL(address _token) external view returns(uint256){
+        return tvl[_token];
     }
 
     receive() external payable {

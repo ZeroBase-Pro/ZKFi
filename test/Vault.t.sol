@@ -105,6 +105,9 @@ contract VaultTest is Test {
     // 3. wait for 14 days
     // 4. claim
     function testClaimAssets_Scenario_A() public {
+        uint256 tvl = vault.getTVL(address(token));
+        assertEq(tvl, 0);
+
         vm.startPrank(user);
         token.mint(user, 500 ether);
         token.approve(address(vault), 500 ether);
@@ -112,11 +115,17 @@ contract VaultTest is Test {
         uint256 stakeTime = block.timestamp;
         vault.stake_66380860(address(token), 500 ether);
 
+        tvl = vault.getTVL(address(token));
+        assertEq(tvl, 500 ether);
+
         vm.warp(block.timestamp + 365.25 days);
         uint256 claimableAssets = vault.getClaimableAssets(user, address(token));
         assertEq(claimableAssets, 535 ether);
 
         uint256 requestID = vault.requestClaim_8135334(address(token), type(uint256).max);
+
+        tvl = vault.getTVL(address(token));
+        assertEq(tvl, 500 ether);
 
         vm.expectRevert();
         vault.requestClaim_8135334(address(token), 1); // no claimable assets
@@ -136,6 +145,9 @@ contract VaultTest is Test {
         // Principal = 500 ether
         // Total claimable assets = Reward + Principal = 535 ether
         assertEq(token.balanceOf(user), 535 ether);
+
+        tvl = vault.getTVL(address(token));
+        assertEq(tvl, 0);
 
         StakeItem memory stakeItem = vault.getStakeHistory(user, address(token), 0);
         assertEq(stakeItem.token, address(token));
@@ -282,7 +294,7 @@ contract VaultTest is Test {
         uint256 requestID1 = vault.requestClaim_8135334(address(token), claimablePrincipal);
         uint256 requestID2 = vault.requestClaim_8135334(address(token), claimableRewards);
 
-        uint256 tvl = vault.getTVL();
+        uint256 tvl = vault.getTVL(address(token));
         assertEq(tvl, 500 ether);
 
         vm.stopPrank();
@@ -324,7 +336,7 @@ contract VaultTest is Test {
         uint256[] memory IDs = vault.getClaimQueueIDs(user, address(token));
         assertEq(IDs.length, 0);
 
-        tvl = vault.getTVL();
+        tvl = vault.getTVL(address(token));
         assertEq(tvl, 0);
 
         vm.stopPrank();
@@ -376,4 +388,40 @@ contract VaultTest is Test {
 
         vm.stopPrank();
     }
+
+    function testGetTVL() public {
+        uint256 tvl = vault.getTVL(address(token));
+        assertEq(tvl, 0);
+
+        vm.startPrank(user);
+        token.mint(user, 500 ether);
+        token.approve(address(vault), 500 ether);
+
+        vault.stake_66380860(address(token), 500 ether);
+
+        tvl = vault.getTVL(address(token));
+        assertEq(tvl, 500 ether);
+
+        vm.warp(block.timestamp + 365.25 days);
+
+        // rewards: 35 ether, principal: 101 ether
+        uint256 requestID = vault.requestClaim_8135334(address(token), 136 ether);
+
+        tvl = vault.getTVL(address(token));
+        assertEq(tvl, 500 ether);
+
+        vm.stopPrank();
+
+        vm.warp(block.timestamp + 14 days);
+        // owner fetches assets from ceffu
+        token.mint(address(vault), 36 ether);
+
+        vm.startPrank(user);
+        vault.claim_41202704(requestID);
+
+        tvl = vault.getTVL(address(token));
+        assertEq(tvl, 500 ether - 101 ether);
+
+        vm.stopPrank();
+    }    
 }
