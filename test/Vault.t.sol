@@ -46,6 +46,14 @@ contract VaultTest is Test {
     }
 
     function testStake() public {
+        // should be zero if user does not stake anything
+        uint256 claimableAssets = vault.getClaimableAssets(user, address(token));
+        uint256 claimableRewards = vault.getClaimableRewards(user, address(token));
+        uint256 totalRewards = vault.getTotalRewards(user, address(token));
+        assertEq(claimableAssets, 0);
+        assertEq(claimableRewards, 0);
+        assertEq(totalRewards, 0);
+
         vm.startPrank(user);
         token.mint(user, 1000 ether);
         token.approve(address(vault), 500 ether);

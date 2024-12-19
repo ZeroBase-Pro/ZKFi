@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.28;
+pragma solidity =0.8.28;
 
 library Utils {
-    // use this when we are certain that an overflow will not occur
+    // Use this when we are certain that an overflow will not occur
     function Add(uint _a, uint _b) public pure returns (uint256) {
         assembly {
             mstore(0x0, add(_a, _b))

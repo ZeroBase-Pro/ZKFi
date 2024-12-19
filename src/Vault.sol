@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.28;
+pragma solidity =0.8.28;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -18,7 +18,7 @@ contract Vault is Pausable, AccessControl, IVault {
     address[] private supportedTokensArray;
 
     // We do not start from 0 because the default queue ID for users is 0(variable default value).
-    uint64 public lastClaimQueueID = 1;
+    uint256 public lastClaimQueueID = 1;
     mapping(uint256 => ClaimItem) private claimQueue;
 
     // Main information
@@ -41,6 +41,7 @@ contract Vault is Pausable, AccessControl, IVault {
     mapping(address => uint256) public minStakeAmount;
     mapping(address => uint256) public maxStakeAmount;
     uint256 public WAITING_TIME;
+    uint256 private constant BASE = 10_000;
 
     constructor(
         address[] memory _tokens,
@@ -307,7 +308,7 @@ contract Vault is Pausable, AccessControl, IVault {
         address _token, 
         uint256 _newRewardRate
     ) external onlySupportedToken(_token) onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(_newRewardRate < 10000, "Invalid new rate");
+        require(_newRewardRate < BASE, "Invalid new rate");
 
         RewardRateState[] memory rewardRateArray = rewardRateState[_token];
         uint256 currentRewardRate = rewardRateArray[rewardRateArray.length - 1].rewardRate;
@@ -375,7 +376,7 @@ contract Vault is Pausable, AccessControl, IVault {
             numerator := mul(numerator, _elapsedTime)
 
             // Calculate denominator = ONE_YEAR * 10000
-            let denominator := mul(ONE_YEAR, 10000)
+            let denominator := mul(ONE_YEAR, BASE)
 
             // Perform the division result = numerator / denominator
             result := div(numerator, denominator)
@@ -390,6 +391,8 @@ contract Vault is Pausable, AccessControl, IVault {
         RewardRateState[] memory rewardRateArray = rewardRateState[_token];
         uint256 rewardRateLength = rewardRateArray.length;
         RewardRateState memory currentRewardRateState = rewardRateArray[rewardRateLength - 1];
+
+        if(lastRewardUpdate == 0) return 0;
 
         // 1. Retrieve the last deposit time `begin`
         // 2. Retrieve the current deposit time `end`
@@ -563,7 +566,7 @@ contract Vault is Pausable, AccessControl, IVault {
         RewardRateState[] memory rewardRateStateArray = rewardRateState[_token];
         RewardRateState memory currentRewardRateState = rewardRateStateArray[rewardRateStateArray.length - 1];
 
-        return (currentRewardRateState.rewardRate, 100);
+        return (currentRewardRateState.rewardRate, BASE);
     }
 
     function getClaimQueueInfo(uint256 _index) external view returns(ClaimItem memory) {
