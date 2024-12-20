@@ -160,9 +160,9 @@ contract Vault is Pausable, AccessControl, IVault {
         // Withdraw from reward first; if insufficient, continue withdrawing from principal
         uint256 totalAmount = _amount;
         if(_amount == type(uint256).max){
-            totalAmount = Utils.Add(assetsInfo.accumulatedReward, assetsInfo.stakedAmount);
+            totalAmount = Utils.Add(currentAccumulatedRewardAmount, assetsInfo.stakedAmount);
 
-            queueItem.rewardAmount = assetsInfo.accumulatedReward;
+            queueItem.rewardAmount = currentAccumulatedRewardAmount;
             assetsInfo.accumulatedReward = 0;
 
             queueItem.principalAmount = assetsInfo.stakedAmount;
@@ -172,7 +172,7 @@ contract Vault is Pausable, AccessControl, IVault {
 
             queueItem.rewardAmount = _amount;
         } else {
-            queueItem.rewardAmount = assetsInfo.accumulatedReward;
+            queueItem.rewardAmount = currentAccumulatedRewardAmount;
             assetsInfo.accumulatedReward = 0;
 
             uint256 difference = _amount - currentAccumulatedRewardAmount;
@@ -181,7 +181,6 @@ contract Vault is Pausable, AccessControl, IVault {
         }
 
         // update status
-        assetsInfo.lastRewardUpdateTime = block.timestamp;
         assetsInfo.pendingClaimQueueIDs.push(lastClaimQueueID);
 
         // update queue
@@ -435,6 +434,8 @@ contract Vault is Pausable, AccessControl, IVault {
             // b. iterate to the latest-1 reward rate
             uint256 tempLastRewardUpdateTime = lastRewardUpdate;
             for (uint256 i = beginIndex; i < rewardRateLength; i++) {
+                if(i == 0) continue;
+
                 uint256 tempElapsedTime = rewardRateArray[i].updatedTime - tempLastRewardUpdateTime;
                 uint256 tempReward = calculateReward(
                     currentStakedAmount,
