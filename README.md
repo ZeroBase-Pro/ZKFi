@@ -24,5 +24,14 @@ Initialize and configure this project through the following steps:
 ## Audit
 
 - Salus: [Salus_ZeroBase_report_2024-12-16](./docs/Salus_ZeroBase_report_2024-12-16.pdf)
-- Peckshield: TODO
+- Peckshield: [PeckShield-Audit-Report-ZeroBase-Vault-v1.0.pdf](./docs/PeckShield-Audit-Report-ZeroBase-Vault-v1.0.pdf)
 
+## Supported Chains
+
+The `Vault` address on all chains is: `0x59f6E226a1055D05a9BD07f40AC2aa87e303CC33`. Currently supported:
+
+- Ethereum
+- BSC
+- Polygon
+- Arbitrum
+- AVAX-C
