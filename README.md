@@ -114,6 +114,6 @@ assignment := ZKRiskNeutralCircuit{
 
 ## Output
 
-Proof file saved as proof.data.
+Proof file saved as `proof.data`.
 
 Verification passed, confirming that Delta neutrality and leverage constraints are satisfied.
