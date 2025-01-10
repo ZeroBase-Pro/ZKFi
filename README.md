@@ -70,3 +70,50 @@ The `Vault` address on all chains is: ``. Currently supported:
 - AVAX-C
 - OP
 - Base
+
+
+
+
+## Circuit Logic
+
+### Delta Neutrality Verification
+- Calculates the absolute difference between the maximum and minimum Delta values.
+- Verifies whether this difference (scaled) satisfies the Delta upper limit constraint.
+
+### Leverage Ratio Verification
+- Ensures the leverage value is non-negative and does not exceed the predefined limit.
+- Confirms that the provided leverage value matches the computed result.
+
+### Boundary Condition Validation
+- Verifies that input values (e.g., `DeltaUpper` and `LeverageUpper`) are within reasonable ranges.
+
+---
+
+
+## Usage
+
+The circuit is implemented in `ZKRiskNeutralCircuit` and compiled into a constraint system (CCS).
+```bash
+go run ZKRiskNeutral.go
+```
+
+## Example
+
+### Input Assignment
+```go
+assignment := ZKRiskNeutralCircuit{
+    Leverage:        1,   // Leverage ratio
+    DeltaMax:        100, // Maximum Delta in the position
+    DeltaMin:        99,  // Minimum Delta in the position
+    LeverageUpper:   3,   // Leverage upper limit
+    DeltaUpper:      5,   // Delta risk neutrality upper limit
+    LeverageConfirm: -1,  // Leverage result: -1 less than, 0 equal to, 1 greater than
+    DeltaConfirm:    -1,  // Delta result: -1 less than, 0 equal to, 1 greater than
+}
+```
+
+## Output
+
+Proof file saved as proof.data.
+
+Verification passed, confirming that Delta neutrality and leverage constraints are satisfied.
