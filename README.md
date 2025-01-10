@@ -1,8 +1,6 @@
-# Zerobase
+# Zerobase Staking
 
-[Zerobase](https://zerobase.pro/) is a real-time zero-knowledge (ZK) prover network designed for rapid proof generation, decentralization, and regulatory compliance. It generates ZK proofs within hundreds of milliseconds, enabling large-scale commercial applications.
-
-We introduce a smart contract system, hereafter referred to as `Vault`, it is a secure staking and rewards management system built on the Ethereum Virtual Machine (EVM) blockchain. It allows users to stake supported tokens and earn rewards.
+The [Zerobase](https://zerobase.pro/)  staking mechanism is an incentive and constraint system designed to ensure the security and reliability of prover nodes during ZKP generation. Prover nodes must stake stablecoins to join the proof network. These staked stablecoins are used for trading arbitrage via CEFFU, generating additional returns.
 
 You could find more details in the [document](./docs/zerobase-vault-1212.pdf).
 
@@ -21,12 +19,12 @@ Initialize and configure this project through the following steps:
 > forge install openzeppelin/openzeppelin-contracts
 > ```
 
-## Audit
+## V1 Version Auditor
 
 - Salus: [Salus_ZeroBase_report_2024-12-16](./docs/Salus_ZeroBase_report_2024-12-16.pdf)
 - Peckshield: [PeckShield-Audit-Report-ZeroBase-Vault-v1.0.pdf](./docs/PeckShield-Audit-Report-ZeroBase-Vault-v1.0.pdf)
 
-## Supported Chains
+## V1 Version Supported Chains
 
 The `Vault` address on all chains is: `0x59f6E226a1055D05a9BD07f40AC2aa87e303CC33`. Currently supported:
 
@@ -35,3 +33,40 @@ The `Vault` address on all chains is: `0x59f6E226a1055D05a9BD07f40AC2aa87e303CC3
 - Polygon
 - Arbitrum
 - AVAX-C
+
+## V2 Version Change
+
+- Emergency Withdrawal Automation:
+Emergency withdrawals are now fully automated, allowing users to interact directly with the contract without manual intervention. Users will only need to pay a 0.5% emergency withdrawal fee based on the withdrawn amount.
+
+- LP Token for Deposits:
+Users will receive LP tokens (zkUSDT/zkUSDC) upon depositing, representing their stake in the ZEROBASE Staking product.
+
+- Borrowing Feature:
+Users will be able to stake zkUSDT/zkUSDC and borrow USDT/USDC against their holdings.
+
+- Risk-Neutral ZK Functionality for Trading Strategies:
+A new ZK functionality for risk-neutral validation of trading strategies will be launched, along with the open-source release of the circuit code.
+
+- Proof Browser:
+A proof browser will be introduced, enabling users to verify zero-knowledge proof results transparently.
+
+- Enhanced User Interface:
+Improvements to the front-end user interaction experience will be implemented for better usability.
+
+- Seamless V1 Compatibility:
+The V2 contract will be fully compatible with V1, allowing V1 users to access all V2 features without disruption, ensuring a seamless contract migration.
+
+## V2 Version Auditor
+
+## V2 Version Supported Chains
+
+The `Vault` address on all chains is: ``. Currently supported:
+
+- Ethereum
+- BSC
+- Polygon
+- Arbitrum
+- AVAX-C
+- OP
+- Base
