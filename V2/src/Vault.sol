@@ -325,7 +325,7 @@ contract Vault is Pausable, AccessControl, IVault {
     }
 
     // function signature: 000000e5, the less function matching, the more gas saved
-    function claim_41202704(uint256 _queueID, address _token) external whenNotPaused{//TODO signature变了
+    function claim_41202704(uint256 _queueID, address _token) external whenNotPaused{
         checkNotFirstOperation(_token);
         ClaimItem memory claimItem = claimQueue[_queueID];
         address token = claimItem.token;
