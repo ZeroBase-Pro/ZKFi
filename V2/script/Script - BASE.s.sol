@@ -21,11 +21,11 @@ contract VaultV2BASE is Script {
         //rewardRate & supportToken
         address[] memory supportedTokens = new address[](1);
         supportedTokens[0] = USDC;
-        uint256[] memory rewardRate = new uint256[](2);
+        uint256[] memory rewardRate = new uint256[](1);
         rewardRate[0] = 700;
-        uint256[] memory minStakeAmount = new uint256[](2);
+        uint256[] memory minStakeAmount = new uint256[](1);
         minStakeAmount[0] = 0;
-        uint256[] memory maxStakeAmount = new uint256[](2);
+        uint256[] memory maxStakeAmount = new uint256[](1);
         maxStakeAmount[0] = type(uint256).max;
 
         WithdrawVault withdrawVault = new WithdrawVault(supportedTokens, deployer, bot, ceffu);
