@@ -54,10 +54,11 @@ contract VaultV2 is Script {
             rewardRate,
             minStakeAmount,
             maxStakeAmount,
-            owner, // admin
+            deployer, // admin
             owner, // bot
             ceffu,
             14 days,
+            // 600,
             totalStaked,
             payable(address(withdrawVault)),
             address(vaultV1),

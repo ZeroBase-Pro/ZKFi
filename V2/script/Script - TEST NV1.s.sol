@@ -4,23 +4,25 @@ pragma solidity ^0.8.28;
 import "forge-std/Script.sol";
 import "../src/Vault.sol";
 import "../src/zkToken.sol";
+import "../test/MockERC20.sol";
 import "../src/WithdrawVault.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-contract VaultV2BASE is Script {
-    address owner = 0x6740a2b31BC55782e46C2a9D7A32A38905E118C5;
-    address bot = 0x934C775d3004689EA5738FE80F34378f589F190D;
-    address ceffu = 0xD038213A84a86348d000929C115528AE9DdC1158;
-    address deployer;//need modify
+contract VaultV2NV1 is Script {
+    address owner = address(1);
+    address ceffu = owner;
+    address bot = owner;
+    address airdrop = owner;
+    address deployer = 0x2b2E23ceC9921288f63F60A839E2B28235bc22ad;
+    IVault vaultV1 = IVault(address(0));
     function run() public {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         vm.startBroadcast(deployerPrivateKey);
 
-        address USDC = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
+        MockERC20 token = new MockERC20();
 
-        //rewardRate & supportToken
         address[] memory supportedTokens = new address[](1);
-        supportedTokens[0] = USDC;
+        supportedTokens[0] = address(token);
         uint256[] memory rewardRate = new uint256[](1);
         rewardRate[0] = 700;
         uint256[] memory minStakeAmount = new uint256[](1);
@@ -30,13 +32,20 @@ contract VaultV2BASE is Script {
 
         WithdrawVault withdrawVault = new WithdrawVault(supportedTokens, deployer, bot, ceffu);
 
+        // vaultV1.pause();
 
-        zkToken zkc = new zkToken("zkUSDC", "zkUSDC", owner);
+        uint snapShotTime = block.timestamp;
+
+        uint[] memory totalStaked = new uint[](1);
+        totalStaked[0] = 0 ether;
+
+
+        uint[] memory tvl = new uint[](1);
+        tvl[0] = 0 ether;
+
+        zkToken zk = new zkToken("zkUSDT", "zkUSDT", deployer);
         address[] memory zks = new address[](1);
-        zks[0] = address(zkc);
-
-        uint[] memory totals = new uint[](1);
-        totals[0] = 0;
+        zks[0] = address(zk);
 
         IVault vault = new Vault(
             supportedTokens,
@@ -44,30 +53,33 @@ contract VaultV2BASE is Script {
             rewardRate,
             minStakeAmount,
             maxStakeAmount,
-            owner, // admin
-            bot, // bot
+            deployer, // admin
+            owner, // bot
             ceffu,
-            14 days,
-            totals,
+            // 14 days,
+            600,
+            totalStaked,
             payable(address(withdrawVault)),
             address(0),
-            0,
-            totals,
+            snapShotTime,
+            tvl,
             address(0)
         );
 
         withdrawVault.setVault(address(vault));
         withdrawVault.changeAdmin(owner);
 
-        zkc.setToVault(address(vault), address(vault));
-        zkc.setAdmin(owner);
+        zk.setToVault(address(vault), address(vault));
+        zk.setAirdropper(airdrop);
+        zk.setAdmin(owner);
 
         vm.stopBroadcast();
 
         console.log("vault address:", address(vault));
         console.log("withdrawVault address:", address(withdrawVault));
-        console.log("zkUSDC address:", address(zkc));
+        console.log("vaultV1 address:", address(vaultV1));
+        console.log("zk address:", address(zk));
 
     }
 }
-//forge script VaultV2BASE --rpc-url https://base.llamarpc.com --broadcast --etherscan-api-key BC4TGWPYAWBVTSNJZ2568U3UQ56GT3AVJB --verify
+//forge script VaultV2NV1 --rpc-url https://holesky.drpc.org --broadcast --etherscan-api-key F41MZG297XBH3D4RHMN96Y6S15HYFDJQNC --verify

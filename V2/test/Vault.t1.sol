@@ -248,7 +248,7 @@ contract VaultTest is Test {
         vault.stake_66380860(address(token), 500 ether);
         vm.stopPrank();
 
-        vm.warp(86402 + 1 days);
+        vm.warp(vm.getBlockTimestamp() + 1 days);
 
         vm.startPrank(user);
         uint user1Reward = vault.getClaimableRewards(user, address(token));
@@ -410,7 +410,7 @@ contract VaultTest is Test {
         vault.stake_66380860(address(token), 500 ether);
         vm.stopPrank();
 
-        vm.warp(86402 + 1 days);
+        vm.warp(vm.getBlockTimestamp() + 1 days);
         uint BASE = 10000;
         uint penalty = 50;
 

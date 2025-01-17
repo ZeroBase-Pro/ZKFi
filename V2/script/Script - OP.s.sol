@@ -11,7 +11,7 @@ contract VaultV2OP is Script {
     address owner = 0x6740a2b31BC55782e46C2a9D7A32A38905E118C5;
     address bot = 0x934C775d3004689EA5738FE80F34378f589F190D;
     address ceffu = 0xD038213A84a86348d000929C115528AE9DdC1158;
-    address deployer;//需要修改
+    address deployer;//need modify
     function run() public {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         vm.startBroadcast(deployerPrivateKey);

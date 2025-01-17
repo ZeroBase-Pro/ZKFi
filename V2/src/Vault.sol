@@ -160,19 +160,28 @@ contract Vault is Pausable, AccessControl, IVault {
                 assetsInfo.stakedAmount += vaultV1.getClaimableAssets(msg.sender, _token) - deltaReward;
             }
             assetsInfo.lastRewardUpdateTime = initialTime;
-            _queueMigration(msg.sender, assetsInfo, _token);
+            _dataMigration(msg.sender, assetsInfo, _token);
             notFirstTime[msg.sender][_token] = true;
         } else if(!notFirstTime[msg.sender][_token]) {
             notFirstTime[msg.sender][_token] = true;
         }
     }
 
-    function _queueMigration(address user, AssetsInfo storage assetsInfo, address _token) internal {
+    function _dataMigration(address user, AssetsInfo storage assetsInfo, address _token) internal {
+        uint len = vaultV1.getStakeHistoryLength(user, _token);
+        for(uint i; i < len; i++) {
+            assetsInfo.stakeHistory.push(vaultV1.getStakeHistory(user, _token, i));
+        }
+
+        len = vaultV1.getClaimHistoryLength(user, _token);
+        for(uint i; i < len; i++) {
+            assetsInfo.claimHistory.push(vaultV1.getClaimHistory(user, _token, i));
+        }
         uint[] memory ids = vaultV1.getClaimQueueIDs(user, _token);
         for(uint i; i < ids.length; i++) {
             assetsInfo.pendingClaimQueueIDs.push(ids[i]);
         }
-        uint len = assetsInfo.pendingClaimQueueIDs.length;
+        len = assetsInfo.pendingClaimQueueIDs.length;
         for(uint i; i < len; i++) {
             ClaimItem memory claimItemTemp = vaultV1.getClaimQueueInfo(assetsInfo.pendingClaimQueueIDs[i]);
             ClaimItem storage claimItem = claimQueue[assetsInfo.pendingClaimQueueIDs[i]];
@@ -536,7 +545,7 @@ contract Vault is Pausable, AccessControl, IVault {
             assetsInfo.stakedAmount += amount;
             assetsInfo.lastRewardUpdateTime = initialTime;
             if(vaultV1.getClaimQueueIDs(msg.sender, token).length > 0){
-                _queueMigration(to, assetsInfo, token);
+                _dataMigration(to, assetsInfo, token);
             }
         } else if(vaultV1.getStakedAmount(to, token) == 0){
             _updateRewardState(to, token);

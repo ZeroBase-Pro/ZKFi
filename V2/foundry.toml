@@ -5,6 +5,7 @@ libs = ["lib"]
 viaIR = true
 optimizer = true
 optimizer_runs = 20
+gas_reports = ["*"]
 
 [profile.ci]
 verbosity = 4

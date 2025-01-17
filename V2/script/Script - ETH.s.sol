@@ -19,8 +19,8 @@ contract VaultV2ETH is Script {
     address owner = 0x6740a2b31BC55782e46C2a9D7A32A38905E118C5;
     address bot = 0x934C775d3004689EA5738FE80F34378f589F190D;
     address ceffu = 0xD038213A84a86348d000929C115528AE9DdC1158;
-    address airdrop = address(0x01);//此地址需要修改
-    address deployer;//需要修改
+    address airdrop = address(0x01);//need modify
+    address deployer;//need modify
     IVault vaultV1 = IVault(0x59f6E226a1055D05a9BD07f40AC2aa87e303CC33);
     function run() public {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
@@ -35,7 +35,7 @@ contract VaultV2ETH is Script {
         supportedTokens[1] = USDC;
         uint256[] memory rewardRate = new uint256[](2);
         rewardRate[0] = 700;
-        rewardRate[1] = 700;//初始值是否为7%
+        rewardRate[1] = 700;
         uint256[] memory minStakeAmount = new uint256[](2);
         minStakeAmount[0] = 0;
         minStakeAmount[1] = 0;
@@ -47,11 +47,11 @@ contract VaultV2ETH is Script {
 
         vaultV1.pause();
 
-        uint snapShotTime = block.timestamp;//需要修改，提供快照时间，即后端读取所有用户信息的时间
+        uint snapShotTime = block.timestamp;//need modify
 
         uint[] memory totalStaked = new uint[](2);
-        totalStaked[0] = 1500 ether;//等待后端提供数据进行修改，v1的USDT所有存款加利息
-        totalStaked[1] = 1500 ether;//等待后端提供数据进行修改，v1的USDC所有存款加利息
+        totalStaked[0] = 1500 ether;//need modify
+        totalStaked[1] = 1500 ether;//need modify
 
 
         uint[] memory tvl = new uint[](2);
