@@ -52,7 +52,7 @@ contract Vault is Pausable, AccessControl, IVault {
 
     mapping(address => uint256) public totalStakeAmountByToken;
     mapping(address => uint256) private _lastRewardUpdatedTime;
-    mapping(address => uint256) private totalRewardsAmountByToken;
+    mapping(address => uint256) public totalRewardsAmountByToken;
     mapping(address => mapping(address => bool)) private notFirstTime;
 
     uint private initialTime;
