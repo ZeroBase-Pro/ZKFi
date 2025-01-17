@@ -168,11 +168,10 @@ contract VaultV2Test is Test {
         console.log(
             zkAmount,
             vault.convertToShares(500 ether + user2Assets + vault.getClaimableRewards(user2, address(token)), address(token))
-            );//误差在小数点后17位，精度为1e18，因此在预期范围之内
+            );
         vm.stopPrank();
     }
 
-    //把旧合约中已经requestClaim的人的信息迁移过来并测试能否正常claim
     function testClaim() public {
         vm.startPrank(user);
         uint[] memory ids = vaultV1.getClaimQueueIDs(user, address(token));
@@ -264,7 +263,7 @@ contract VaultV2Test is Test {
         uint tvlBefore = vault.getTVL(address(token));
 
         vm.startPrank(newUser);
-        vault.claim_41202704(id, address(token));//正常claim在withdrawVault扣款
+        vault.claim_41202704(id, address(token));
         vm.stopPrank();
 
         uint tvlAfter = vault.getTVL(address(token));
@@ -279,7 +278,7 @@ contract VaultV2Test is Test {
         vm.warp(block.timestamp + 1 days);
 
         uint totalAssets = vault.getClaimableAssets(newUser, address(token));
-        token.mint(address(vault), totalAssets);//flashWithdraw在vault扣款
+        token.mint(address(vault), totalAssets);
 
         vm.startPrank(newUser);
         vault.flashWithdrawWithPenalty(address(token), type(uint).max);
