@@ -485,11 +485,10 @@ contract Vault is Pausable, AccessControl, IVault, Test {
         tokenAmount = (shares * exchangeRate) / 1e18;
     }
 
-    // 用于用户之间相互转移权益
     function transferOrTransferFrom(address token, address from, address to, uint256 amount) public returns (bool) {
         require(from != to, "from can not be same as the to");
         require(amount > 0, "amount must be greater than 0");
-        
+
         uint256 tokenBefore = getZKTokenAmount(from, token);
         require(tokenBefore >= amount, "balance");
         if(msg.sender != from){

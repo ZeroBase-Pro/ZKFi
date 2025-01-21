@@ -45,7 +45,6 @@ contract VaultV2Test is Test {
         withdrawVault = new WithdrawVault(supportedTokens, owner, owner, owner);
         vm.stopPrank();
 
-        // 在测试中，将会空投一共 15800 ether
         uint[] memory totalStaked = new uint[](1);
 
         totalStaked[0] = user1Assets + user2Assets + user3Assets;
@@ -85,14 +84,12 @@ contract VaultV2Test is Test {
     // test1: airdrop
     function testAirDrop() public {
 
-        // 项目部署之后的1秒钟后，我们开始项目的运营
         vm.warp(block.timestamp + 1);
 
         vm.startPrank(airdrop);
 
         uint256 tvlBefore = vault.getTVL(address(mockUSDT));
 
-        // 发送空投
         vault.sendLpTokens(address(mockUSDT), user1, 800 ether, true);
         vault.sendLpTokens(address(mockUSDT), user2, 5000 ether, true);
         vault.sendLpTokens(address(mockUSDT), user3, 10000 ether, true);
@@ -106,25 +103,21 @@ contract VaultV2Test is Test {
         vault.unpause();
         vm.stopPrank();
 
-        // 测试：用户1的本金存款数目；用户1的本金和利润数目
         uint256 user1StakedAmount = vault.getStakedAmount(user1, address(mockUSDT));
         uint256 user1TotalAmount = vault.getClaimableAssets(user1, address(mockUSDT));
         assertEq(user1StakedAmount, 800 ether);
         assertGt(user1TotalAmount, 800 ether); // principal + rewards
 
-        // 测试：用户1的本金存款数目；用户1的本金和利润数目
         uint256 user2StakedAmount = vault.getStakedAmount(user2, address(mockUSDT));
         uint256 user2TotalAmount = vault.getClaimableAssets(user2, address(mockUSDT));
         assertEq(user2StakedAmount, 5000 ether);
         assertGt(user2TotalAmount, 5000 ether); // principal + rewards
 
-        // 测试：用户3的本金存款数目；用户1的本金和利润数目
         uint256 user3StakedAmount = vault.getStakedAmount(user3, address(mockUSDT));
         uint256 user3TotalAmount = vault.getClaimableAssets(user3, address(mockUSDT));
         assertEq(user3StakedAmount, 10000 ether);
         assertGt(user3TotalAmount, 10000 ether); // principal + rewards
 
-        // 测试：确认总的质押数目是否一致
         assertEq(
             vault.totalStakeAmountByToken(address(mockUSDT)),
             15800 ether
@@ -388,9 +381,8 @@ contract VaultV2Test is Test {
         vault.transferOrTransferFrom(address(mockUSDT), newUser, user1, 100 ether);
         vm.stopPrank();
 
-        // 测试：user1的资产 = 被转移资产之前的余额 + 100 ether + 转移方from产生的部分利润
         assertGt(vault.getClaimableAssets(user1, address(mockUSDT)), user1AssetsAfterAirdrop + 100 ether);
-        // 测试：newUser的资产 = newUser之前的余额 - 100 ether + newUser产生的部分利润
+
         assertLe(vault.getClaimableAssets(newUser, address(mockUSDT)), newUserAssetsAfterAirdrop - 100 ether);
     }
 
