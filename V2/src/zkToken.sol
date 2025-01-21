@@ -45,7 +45,7 @@ contract zkToken is ERC20 {
     }
 
     function setAdmin(address _admin) external onlyAdmin {
-        require(address(0) != _admin && _admin != admin, "cannot be the same");
+        require(address(0) != _admin && _admin != admin, "Invalid address");
         admin = _admin;
     }
 
