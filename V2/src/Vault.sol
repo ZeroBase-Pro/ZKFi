@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.28;
 
+import "forge-std/Test.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
@@ -10,7 +11,7 @@ import "./IWithdrawVault.sol";
 import "./IVault.sol";
 import "./utils.sol";
 
-contract Vault is Pausable, AccessControl, IVault {
+contract Vault is Pausable, AccessControl, IVault, Test {
     using SafeERC20 for IERC20;
     using SafeERC20 for IzkToken;
 
@@ -23,8 +24,7 @@ contract Vault is Pausable, AccessControl, IVault {
     mapping(address => IzkToken) public supportedTokenToZkToken;
     mapping(address => address) public zkTokenToSupportedToken;
 
-    // We do not start from 0 because the default queue ID for users is 0(variable default value).
-    uint256 public lastClaimQueueID;
+    uint256 public lastClaimQueueID = 10_000;
     mapping(uint256 => ClaimItem) private claimQueue;
 
     // Main information
@@ -44,7 +44,7 @@ contract Vault is Pausable, AccessControl, IVault {
 
     // Misc
     address private ceffu;
-    uint private penaltyRate = 50; // 0.5%
+    uint256 private penaltyRate = 50; // 0.5%
     mapping(address => uint256) public minStakeAmount;
     mapping(address => uint256) public maxStakeAmount;
     uint256 public WAITING_TIME;
@@ -53,12 +53,9 @@ contract Vault is Pausable, AccessControl, IVault {
     mapping(address => uint256) public totalStakeAmountByToken;
     mapping(address => uint256) private _lastRewardUpdatedTime;
     mapping(address => uint256) public totalRewardsAmountByToken;
-    mapping(address => mapping(address => bool)) private notFirstTime;
 
-    uint private initialTime;
-    uint private snapShotTime;
+    uint256 private initialTime;
     IWithdrawVault private withdrawVault;
-    IVault private vaultV1;
     address private airdropAddr;
 
     constructor(
@@ -71,11 +68,7 @@ contract Vault is Pausable, AccessControl, IVault {
         address _bot,
         address _ceffu,
         uint256 _waitingTime,
-        uint[] memory totalStaked,
         address payable withdrawVaultAddress,
-        address _vaultV1,
-        uint _snapShotTime,
-        uint[] memory _tvl,
         address _airdropAddr
     ) {
         Utils.CheckIsZeroAddress(_ceffu);
@@ -89,9 +82,7 @@ contract Vault is Pausable, AccessControl, IVault {
             len == _newRewardRate.length &&
             len == _minStakeAmount.length &&
             len == _maxStakeAmount.length && 
-            len == totalStaked.length &&
-            len == _zkTokens.length &&
-            len == _tvl.length
+            len == _zkTokens.length
         );
 
         // Grant role
@@ -133,66 +124,50 @@ contract Vault is Pausable, AccessControl, IVault {
             emit UpdateRewardRate(token, 0, _newRewardRate[i]);
 
             _lastRewardUpdatedTime[token] = block.timestamp;
-            totalStakeAmountByToken[token] = totalStaked[i];//V1 stake + reward
-            
-            tvl[token] = _tvl[i];
+        
         }
 
         withdrawVault = IWithdrawVault(withdrawVaultAddress);
-        vaultV1 = IVault(_vaultV1);
-        lastClaimQueueID = _vaultV1 == address(0) ? 1 : vaultV1.lastClaimQueueID();
-        snapShotTime = _snapShotTime;
+
+        _pause();
+    }
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    ///                                           Controller                                              ///
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    bool flashNotEnable;
+    bool cancelNotEnable;
+
+    modifier OnlyFlashEnable{
+        require(!flashNotEnable, "flash withdraw not enable");
+    _;
+    }
+    modifier OnlyCancelEnable{
+        require(!cancelNotEnable, "cancel claim not enable");
+    _;
+    }
+
+    event FlashStatusChanged(bool indexed oldStatus, bool indexed newStatus);
+    event CancelStatusChanged(bool indexed oldStatus, bool indexed newStatus);
+
+    function setFlashEnable(bool _enable) external onlyRole(DEFAULT_ADMIN_ROLE){
+        require(_enable != flashNotEnable, "nothing changed");
+        bool oldStatus = flashNotEnable;
+        flashNotEnable = _enable;
+        emit FlashStatusChanged(oldStatus, _enable);
+    }
+    function setCancelEnable(bool _enable) external onlyRole(DEFAULT_ADMIN_ROLE){
+        require(_enable != cancelNotEnable, "nothing changed");
+        bool oldStatus = flashNotEnable;
+        cancelNotEnable = _enable;
+
+        emit FlashStatusChanged(oldStatus, _enable);
     }
 
     modifier onlySupportedToken(address _token) {
         require(supportedTokens[_token], "Unsupported");
         _;
-    }
-
-    function checkNotFirstOperation(address _token) internal {
-        if(address(vaultV1) == address(0)) return;
-        if ((!notFirstTime[msg.sender][_token] && vaultV1.getStakedAmount(msg.sender, _token) != 0) ||
-            (!notFirstTime[msg.sender][_token] && vaultV1.getClaimQueueIDs(msg.sender, _token).length != 0)) {
-            AssetsInfo storage assetsInfo = userAssetsInfo[msg.sender][_token];
-            if(snapShotTime > block.timestamp) assetsInfo.stakedAmount += vaultV1.getStakedAmount(msg.sender, _token) + vaultV1.getClaimableRewardsWithTargetTime(msg.sender, _token, snapShotTime);
-            if(snapShotTime <= block.timestamp) {
-                uint deltaReward = calculateReward(vaultV1.getStakedAmount(msg.sender, _token), 700, block.timestamp - snapShotTime);
-                assetsInfo.stakedAmount += vaultV1.getClaimableAssets(msg.sender, _token) - deltaReward;
-            }
-            assetsInfo.lastRewardUpdateTime = initialTime;
-            _dataMigration(msg.sender, assetsInfo, _token);
-            notFirstTime[msg.sender][_token] = true;
-        } else if(!notFirstTime[msg.sender][_token]) {
-            notFirstTime[msg.sender][_token] = true;
-        }
-    }
-
-    function _dataMigration(address user, AssetsInfo storage assetsInfo, address _token) internal {
-        uint len = vaultV1.getStakeHistoryLength(user, _token);
-        for(uint i; i < len; i++) {
-            assetsInfo.stakeHistory.push(vaultV1.getStakeHistory(user, _token, i));
-        }
-
-        len = vaultV1.getClaimHistoryLength(user, _token);
-        for(uint i; i < len; i++) {
-            assetsInfo.claimHistory.push(vaultV1.getClaimHistory(user, _token, i));
-        }
-        uint[] memory ids = vaultV1.getClaimQueueIDs(user, _token);
-        for(uint i; i < ids.length; i++) {
-            assetsInfo.pendingClaimQueueIDs.push(ids[i]);
-        }
-        len = assetsInfo.pendingClaimQueueIDs.length;
-        for(uint i; i < len; i++) {
-            ClaimItem memory claimItemTemp = vaultV1.getClaimQueueInfo(assetsInfo.pendingClaimQueueIDs[i]);
-            ClaimItem storage claimItem = claimQueue[assetsInfo.pendingClaimQueueIDs[i]];
-            claimItem.token = claimItemTemp.token;
-            claimItem.user = claimItemTemp.user;
-            claimItem.totalAmount = claimItemTemp.totalAmount;
-            claimItem.principalAmount = claimItemTemp.principalAmount;
-            claimItem.rewardAmount = claimItemTemp.rewardAmount;
-            claimItem.requestTime = claimItemTemp.requestTime;
-            claimItem.claimTime = claimItemTemp.claimTime;
-        }
     }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -201,7 +176,6 @@ contract Vault is Pausable, AccessControl, IVault {
 
     // function signature: 000000ed, the less function matching, the more gas saved
     function stake_66380860(address _token,  uint256 _stakedAmount) external onlySupportedToken(_token) whenNotPaused {
-        checkNotFirstOperation(_token);
         AssetsInfo storage assetsInfo = userAssetsInfo[msg.sender][_token];
         uint256 currentStakedAmount = assetsInfo.stakedAmount;
 
@@ -211,11 +185,10 @@ contract Vault is Pausable, AccessControl, IVault {
         IERC20(_token).safeTransferFrom(msg.sender, address(this), _stakedAmount);
 
         _updateRewardState(msg.sender, _token);
-
-        uint exchangeRate = _getExchangeRate(_token);
+        uint256 exchangeRate = _getExchangeRate(_token);
 
         totalStakeAmountByToken[_token] += _stakedAmount;
-        uint mintAmount = _stakedAmount * 1e18 / exchangeRate;
+        uint256 mintAmount = _stakedAmount * 1e18 / exchangeRate;
         supportedTokenToZkToken[_token].mint(msg.sender, mintAmount);
 
         // update status
@@ -240,9 +213,8 @@ contract Vault is Pausable, AccessControl, IVault {
         address _token, 
         uint256 _amount
     ) external onlySupportedToken(_token) whenNotPaused returns(uint256 _returnID) {
-        checkNotFirstOperation(_token);
         _updateRewardState(msg.sender, _token);
-        uint exchangeRate = _getExchangeRate(_token);
+        uint256 exchangeRate = _getExchangeRate(_token);
 
         AssetsInfo storage assetsInfo = userAssetsInfo[msg.sender][_token];
         uint256 currentStakedAmount = assetsInfo.stakedAmount;
@@ -268,9 +240,8 @@ contract Vault is Pausable, AccessControl, IVault {
         totalStakeAmountByToken[_token] -= queueItem.principalAmount;
         totalRewardsAmountByToken[_token] -= queueItem.rewardAmount;
 
-        uint sharesToBurn = totalAmount * 1e18 / exchangeRate;
-        uint zkBalance = supportedTokenToZkToken[_token].balanceOf(msg.sender);
-        
+        uint256 sharesToBurn = totalAmount * 1e18 / exchangeRate;
+        uint256 zkBalance = supportedTokenToZkToken[_token].balanceOf(msg.sender);
         
         if(sharesToBurn > zkBalance || assetsInfo.stakedAmount == 0) sharesToBurn = zkBalance;
 
@@ -291,9 +262,7 @@ contract Vault is Pausable, AccessControl, IVault {
         emit RequestClaim(msg.sender, _token, totalAmount, _returnID);
     }
 
-    function cancelClaim(uint _queueId, address _token) external whenNotPaused {
-        checkNotFirstOperation(_token);
-
+    function cancelClaim(uint256 _queueId, address _token) external whenNotPaused OnlyCancelEnable{
         ClaimItem memory claimItem = claimQueue[_queueId];
         delete claimQueue[_queueId];
 
@@ -314,19 +283,19 @@ contract Vault is Pausable, AccessControl, IVault {
             }
         }
 
-        uint principal = claimItem.principalAmount;
-        uint reward = claimItem.rewardAmount;
+        uint256 principal = claimItem.principalAmount;
+        uint256 reward = claimItem.rewardAmount;
 
         assetsInfo.stakedAmount += principal;
         assetsInfo.accumulatedReward += reward;
         assetsInfo.lastRewardUpdateTime = block.timestamp;
 
         _updateRewardState(msg.sender, _token);
+        uint256 exchangeRate = _getExchangeRate(_token);
+        uint256 amountToMint = (principal + reward) * 1e18 / exchangeRate;
 
         totalStakeAmountByToken[_token] += principal;
         totalRewardsAmountByToken[_token] += reward;
-
-        uint amountToMint = convertToShares(principal + reward, _token);
 
         supportedTokenToZkToken[_token].mint(msg.sender, amountToMint);
 
@@ -335,7 +304,6 @@ contract Vault is Pausable, AccessControl, IVault {
 
     // function signature: 000000e5, the less function matching, the more gas saved
     function claim_41202704(uint256 _queueID, address _token) external whenNotPaused{
-        checkNotFirstOperation(_token);
         ClaimItem memory claimItem = claimQueue[_queueID];
         address token = claimItem.token;
         AssetsInfo storage assetsInfo = userAssetsInfo[msg.sender][token];
@@ -378,11 +346,10 @@ contract Vault is Pausable, AccessControl, IVault {
     function flashWithdrawWithPenalty(
         address _token,
         uint256 _amount
-    ) external onlySupportedToken(_token) whenNotPaused {
-        checkNotFirstOperation(_token);
+    ) external onlySupportedToken(_token) whenNotPaused OnlyFlashEnable{
         AssetsInfo storage assetsInfo = userAssetsInfo[msg.sender][_token];
         _updateRewardState(msg.sender, _token);
-        uint exchangeRate = _getExchangeRate(_token);
+        uint256 exchangeRate = _getExchangeRate(_token);
 
         uint256 currentStakedAmount = assetsInfo.stakedAmount;
         uint256 currentAccumulatedRewardAmount = assetsInfo.accumulatedReward;
@@ -392,9 +359,9 @@ contract Vault is Pausable, AccessControl, IVault {
             (_amount <= Utils.Add(currentStakedAmount, currentAccumulatedRewardAmount) || _amount == type(uint256).max)
         );
 
-        uint totalAmount = _amount;
-        uint principalAmount;
-        uint rewardAmount;
+        uint256 totalAmount = _amount;
+        uint256 principalAmount;
+        uint256 rewardAmount;
         (totalAmount, principalAmount, rewardAmount) = _handleWithdraw(_amount, assetsInfo, claimQueue[lastClaimQueueID], true);
 
         require(totalAmount > 0, "no assets to withdraw");
@@ -402,15 +369,15 @@ contract Vault is Pausable, AccessControl, IVault {
         totalStakeAmountByToken[_token] -= principalAmount;
         totalRewardsAmountByToken[_token] -= rewardAmount;
 
-        uint sharesToBurn = (totalAmount * 1e18) / exchangeRate;
-        uint zkBalance = supportedTokenToZkToken[_token].balanceOf(msg.sender);
+        uint256 sharesToBurn = (totalAmount * 1e18) / exchangeRate;
+        uint256 zkBalance = supportedTokenToZkToken[_token].balanceOf(msg.sender);
 
         if(sharesToBurn > zkBalance || assetsInfo.stakedAmount == 0) sharesToBurn = zkBalance;
 
         supportedTokenToZkToken[_token].burn(msg.sender, sharesToBurn);
 
-        uint amountToSent = totalAmount * (BASE - penaltyRate) / BASE;
-        uint fee = totalAmount - amountToSent;
+        uint256 amountToSent = totalAmount * (BASE - penaltyRate) / BASE;
+        uint256 fee = totalAmount - amountToSent;
 
         require(getContractBalance(_token) >= amountToSent, "not enough balance");
 
@@ -435,14 +402,14 @@ contract Vault is Pausable, AccessControl, IVault {
     }
 
     function _handleWithdraw(
-        uint _amount,
+        uint256 _amount,
         AssetsInfo storage assetsInfo,
         ClaimItem storage queueItem,
         bool isFlash
-    ) internal returns(uint, uint, uint){
-        uint totalAmount = _amount;
-        uint principalAmount;
-        uint rewardAmount;
+    ) internal returns(uint256, uint256, uint256){
+        uint256 totalAmount = _amount;
+        uint256 principalAmount;
+        uint256 rewardAmount;
         uint256 currentAccumulatedRewardAmount = assetsInfo.accumulatedReward;
         if(_amount == type(uint256).max){
             totalAmount = Utils.Add(currentAccumulatedRewardAmount, assetsInfo.stakedAmount);
@@ -472,7 +439,7 @@ contract Vault is Pausable, AccessControl, IVault {
     }
 
     function _updateRewardState(address _user, address _token) internal {
-        AssetsInfo storage assetsInfo = userAssetsInfo[msg.sender][_token];
+        AssetsInfo storage assetsInfo = userAssetsInfo[_user][_token];
         uint256 newAccumulatedReward = 0;
         uint256 newAccumulatedRewardForAll;
         if(assetsInfo.lastRewardUpdateTime != 0) { // not the first time to stake
@@ -488,8 +455,8 @@ contract Vault is Pausable, AccessControl, IVault {
         totalRewardsAmountByToken[_token] = newAccumulatedRewardForAll;
     }
 
-    function _getExchangeRate(address _token) internal view returns(uint exchangeRate){
-        uint totalSupplyZKToken = supportedTokenToZkToken[_token].totalSupply();
+    function _getExchangeRate(address _token) internal view returns(uint256 exchangeRate){
+        uint256 totalSupplyZKToken = supportedTokenToZkToken[_token].totalSupply();
         if (totalSupplyZKToken == 0) {
             exchangeRate = 1e18;
         } else {
@@ -497,29 +464,33 @@ contract Vault is Pausable, AccessControl, IVault {
         }
     }
 
-    function convertToShares(uint tokenAmount, address _token) public view returns(uint shares) {
-        uint totalSupplyZKToken = supportedTokenToZkToken[_token].totalSupply();
-        uint totalStaked = totalStakeAmountByToken[_token];
-        uint totalRewards = _getClaimableRewards(address(this), _token);
+    function convertToShares(uint256 tokenAmount, address _token) public view returns(uint256 shares) {
+        uint256 totalSupplyZKToken = supportedTokenToZkToken[_token].totalSupply();
+        uint256 totalStaked = totalStakeAmountByToken[_token];
+        uint256 totalRewards = _getClaimableRewards(address(this), _token);
 
-        uint exchangeRate = totalSupplyZKToken == 0 ? 
+        uint256 exchangeRate = totalSupplyZKToken == 0 ? 
         1e18 : (totalStaked + totalRewards) * 1e18 / totalSupplyZKToken;
         shares = (tokenAmount * 1e18) / exchangeRate;
     }
 
-    function convertToAssets(uint shares, address _token) public view returns(uint tokenAmount) {
-        uint totalSupplyZKToken = supportedTokenToZkToken[_token].totalSupply();
-        uint totalStaked = totalStakeAmountByToken[_token];
-        uint totalRewards = _getClaimableRewards(address(this), _token);
+    function convertToAssets(uint256 shares, address _token) public view returns(uint256 tokenAmount) {
+        uint256 totalSupplyZKToken = supportedTokenToZkToken[_token].totalSupply();
+        uint256 totalStaked = totalStakeAmountByToken[_token];
+        uint256 totalRewards = _getClaimableRewards(address(this), _token);
 
-        uint exchangeRate = totalSupplyZKToken == 0 ? 
+        uint256 exchangeRate = totalSupplyZKToken == 0 ? 
         1e18 : (totalStaked + totalRewards) * 1e18 / totalSupplyZKToken;
 
         tokenAmount = (shares * exchangeRate) / 1e18;
     }
 
-    function transferOrTransferFrom(address token, address from, address to, uint amount) public returns (bool) {
-        uint tokenBefore = getZKTokenAmount(from, token);
+    // 用于用户之间相互转移权益
+    function transferOrTransferFrom(address token, address from, address to, uint256 amount) public returns (bool) {
+        require(from != to, "from can not be same as the to");
+        require(amount > 0, "amount must be greater than 0");
+        
+        uint256 tokenBefore = getZKTokenAmount(from, token);
         require(tokenBefore >= amount, "balance");
         if(msg.sender != from){
             require(supportedTokenToZkToken[token].allowance(from, msg.sender) >= amount, "allowance");
@@ -534,43 +505,42 @@ contract Vault is Pausable, AccessControl, IVault {
         return true;
     }
 
-    function sendLpTokens(address token, address to, uint amount) external {
+    // airdrop
+    function sendLpTokens(address token, address to, uint256 amount, bool flag) external {
         require(msg.sender == airdropAddr);
         supportedTokenToZkToken[token].transferFrom(airdropAddr, to, amount);
         
         AssetsInfo storage assetsInfo = userAssetsInfo[to][token];
-        if(!notFirstTime[to][token]){
-            notFirstTime[to][token] = true;
-
-            assetsInfo.stakedAmount += amount;
+        if(flag == true){
             assetsInfo.lastRewardUpdateTime = initialTime;
-            if(vaultV1.getClaimQueueIDs(msg.sender, token).length > 0){
-                _dataMigration(to, assetsInfo, token);
-            }
-        } else if(vaultV1.getStakedAmount(to, token) == 0){
+        }else{
             _updateRewardState(to, token);
-            assetsInfo.stakedAmount += amount;
         }
+
+        assetsInfo.stakedAmount += amount;
+
+        totalStakeAmountByToken[token] += amount;
+        tvl[token] += amount;
     }
 
-    function _assetsInfoUpdate(address token, address from, address to, uint amount, uint tokenBefore) internal{
+    function _assetsInfoUpdate(address token, address from, address to, uint256 amount, uint256 tokenBefore) internal{
         _updateRewardState(from, token);
+        _updateRewardState(to, token);
         AssetsInfo storage assetsInfoFrom = userAssetsInfo[from][token];
-        uint stakedAmount = assetsInfoFrom.stakedAmount;
-        uint accumulatedReward = assetsInfoFrom.accumulatedReward;
+        uint256 stakedAmount = assetsInfoFrom.stakedAmount;
+        uint256 accumulatedReward = assetsInfoFrom.accumulatedReward;
 
         AssetsInfo storage assetsInfoTo = userAssetsInfo[to][token];
 
-        uint percent = amount * 1e18 / tokenBefore;
-        uint deltaStaked = (stakedAmount * percent / 1e18);
-        uint deltaReward = (accumulatedReward * percent / 1e18);
+        uint256 percent = amount * 1e18 / tokenBefore;
+        uint256 deltaStaked = (stakedAmount * percent / 1e18);
+        uint256 deltaReward = (accumulatedReward * percent / 1e18);
 
         assetsInfoTo.stakedAmount += deltaStaked;
         assetsInfoFrom.stakedAmount -= deltaStaked;
         assetsInfoTo.accumulatedReward += deltaReward;
         assetsInfoFrom.accumulatedReward -= deltaReward;
         assetsInfoTo.lastRewardUpdateTime = block.timestamp ;
-
     }
 
     function transferToCeffu(
@@ -656,7 +626,7 @@ contract Vault is Pausable, AccessControl, IVault {
         airdropAddr = newAirdropAddr;
     }
 
-    function setPenaltyRate(uint newRate) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setPenaltyRate(uint256 newRate) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(newRate <= BASE && newRate != penaltyRate, "Invalid");
 
         emit UpdatePenaltyRate(penaltyRate, newRate);
@@ -725,7 +695,7 @@ contract Vault is Pausable, AccessControl, IVault {
     function _getClaimableRewards(address _user, address _token) internal view returns (uint256) {
         uint256 currentStakedAmount;
         uint256 lastRewardUpdate;
-        uint currentRewardAmount;
+        uint256 currentRewardAmount;
 
         if(_user != address(this)){
             AssetsInfo memory assetsInfo = userAssetsInfo[_user][_token];

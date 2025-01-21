@@ -32,10 +32,6 @@ contract VaultV2NV1 is Script {
 
         WithdrawVault withdrawVault = new WithdrawVault(supportedTokens, deployer, bot, ceffu);
 
-        // vaultV1.pause();
-
-        uint snapShotTime = block.timestamp;
-
         uint[] memory totalStaked = new uint[](1);
         totalStaked[0] = 0 ether;
 
@@ -58,11 +54,7 @@ contract VaultV2NV1 is Script {
             ceffu,
             // 14 days,
             600,
-            totalStaked,
             payable(address(withdrawVault)),
-            address(0),
-            snapShotTime,
-            tvl,
             address(0)
         );
 

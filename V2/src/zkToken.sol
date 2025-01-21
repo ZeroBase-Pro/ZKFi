@@ -69,4 +69,6 @@ contract zkToken is ERC20 {
         super._transfer(msg.sender, to, amount);
         return true;
     }
+
+    // TODO: decimal in BSC is 18
 }

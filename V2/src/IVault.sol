@@ -57,7 +57,7 @@ interface IVault {
     function claim_41202704(uint256 _queueID, address token) external;
     function flashWithdrawWithPenalty(address _token, uint256 _amount) external;
 
-    function sendLpTokens(address token, address to, uint amount) external;
+    function sendLpTokens(address token, address to, uint amount, bool flag) external;
     function transferToCeffu(address _token, uint256 _amount) external;
     function emergencyWithdraw(address _token, address _receiver) external;
 

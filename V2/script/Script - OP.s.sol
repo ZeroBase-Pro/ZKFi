@@ -56,11 +56,7 @@ contract VaultV2OP is Script {
             bot, // bot
             ceffu,
             14 days,
-            totals,
             payable(address(withdrawVault)),
-            address(0),
-            0,
-            totals,
             address(0)
         );
 

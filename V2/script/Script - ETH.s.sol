@@ -47,12 +47,9 @@ contract VaultV2ETH is Script {
 
         vaultV1.pause();
 
-        uint snapShotTime = block.timestamp;//need modify
-
         uint[] memory totalStaked = new uint[](2);
         totalStaked[0] = 1500 ether;//need modify
         totalStaked[1] = 1500 ether;//need modify
-
 
         uint[] memory tvl = new uint[](2);
         tvl[0] = vaultV1.getTVL(USDT);
@@ -76,11 +73,7 @@ contract VaultV2ETH is Script {
             bot, // bot
             ceffu,
             14 days,
-            totalStaked,
             payable(address(withdrawVault)),
-            address(vaultV1),
-            snapShotTime,
-            tvl,
             airdrop
         );
 
