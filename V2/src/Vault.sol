@@ -57,6 +57,9 @@ contract Vault is Pausable, AccessControl, IVault {
     IWithdrawVault private withdrawVault;
     address private airdropAddr;
 
+    bool flashNotEnable = true;
+    bool cancelNotEnable = true;
+
     constructor(
         address[] memory _tokens,
         address[] memory _zkTokens,
@@ -135,8 +138,6 @@ contract Vault is Pausable, AccessControl, IVault {
     ///                                           Controller                                              ///
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    bool flashNotEnable;
-    bool cancelNotEnable;
 
     modifier OnlyFlashEnable{
         require(!flashNotEnable, "flash withdraw not enable");
