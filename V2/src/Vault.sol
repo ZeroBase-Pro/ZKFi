@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.28;
 
-import "forge-std/Test.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
@@ -11,7 +10,7 @@ import "./IWithdrawVault.sol";
 import "./IVault.sol";
 import "./utils.sol";
 
-contract Vault is Pausable, AccessControl, IVault, Test {
+contract Vault is Pausable, AccessControl, IVault {
     using SafeERC20 for IERC20;
     using SafeERC20 for IzkToken;
 
