@@ -162,7 +162,7 @@ contract Vault is Pausable, AccessControl, IVault {
         bool oldStatus = cancelNotEnable;
         cancelNotEnable = _enable;
 
-        emit FlashStatusChanged(oldStatus, _enable);
+        emit CancelStatusChanged(oldStatus, _enable);
     }
 
     modifier onlySupportedToken(address _token) {
