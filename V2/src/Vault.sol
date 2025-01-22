@@ -159,7 +159,7 @@ contract Vault is Pausable, AccessControl, IVault {
     }
     function setCancelEnable(bool _enable) external onlyRole(DEFAULT_ADMIN_ROLE){
         require(_enable != cancelNotEnable, "nothing changed");
-        bool oldStatus = flashNotEnable;
+        bool oldStatus = cancelNotEnable;
         cancelNotEnable = _enable;
 
         emit FlashStatusChanged(oldStatus, _enable);
