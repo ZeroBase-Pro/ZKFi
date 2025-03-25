@@ -45,7 +45,6 @@ func SaveToJSON(filePath string, v interface{}) error {
 	return nil
 }
 
-// saveProof 保存proof到文件
 func saveProof(proof groth16.Proof, path string) error {
 	file, err := os.Create(path)
 	if err != nil {
@@ -65,7 +64,6 @@ func saveProof(proof groth16.Proof, path string) error {
 	return nil
 }
 
-// loadProof 从文件加载proof
 func loadProof(path string) (groth16.Proof, error) {
 	file, err := os.Open(path)
 	if err != nil {
@@ -86,7 +84,6 @@ func loadProof(path string) (groth16.Proof, error) {
 	return proof, nil
 }
 
-// saveCcs 保存r1cs到文件
 func saveCcs(ccs constraint.ConstraintSystem, path string) error {
 	file, err := os.Create(path)
 	if err != nil {
@@ -107,9 +104,7 @@ func saveCcs(ccs constraint.ConstraintSystem, path string) error {
 	return nil
 }
 
-// saveKeys 保存proving key和verification key
 func saveKeys(pk groth16.ProvingKey, vk groth16.VerifyingKey, pkPath, vkPath string) error {
-	// 保存 proving key
 	pkFile, err := os.Create(pkPath)
 	if err != nil {
 		return fmt.Errorf("failed to create pk file: %w", err)
@@ -126,7 +121,6 @@ func saveKeys(pk groth16.ProvingKey, vk groth16.VerifyingKey, pkPath, vkPath str
 		return fmt.Errorf("failed to write pk: %w", err)
 	}
 
-	// 保存 verification key
 	vkFile, err := os.Create(vkPath)
 	if err != nil {
 		return fmt.Errorf("failed to create vk file: %w", err)
@@ -146,9 +140,7 @@ func saveKeys(pk groth16.ProvingKey, vk groth16.VerifyingKey, pkPath, vkPath str
 	return nil
 }
 
-// loadKeys 加载proving key和verification key
 func loadKeys(pkPath, vkPath string) (groth16.ProvingKey, groth16.VerifyingKey, error) {
-	// 加载 proving key
 	pkFile, err := os.Open(pkPath)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to open pk file: %w", err)
@@ -166,7 +158,6 @@ func loadKeys(pkPath, vkPath string) (groth16.ProvingKey, groth16.VerifyingKey, 
 		return nil, nil, fmt.Errorf("failed to read pk: %w", err)
 	}
 
-	// 加载 verification key
 	vkFile, err := os.Open(vkPath)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to open vk file: %w", err)
