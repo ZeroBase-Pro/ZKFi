@@ -1,16 +1,51 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"math"
+	"math/big"
 	"os"
 
 	"github.com/consensys/gnark-crypto/ecc"
+	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark/backend/groth16"
+	"github.com/consensys/gnark/backend/witness"
 	"github.com/consensys/gnark/constraint"
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/frontend/cs/r1cs"
+	"github.com/consensys/gnark/std/math/cmp"
 )
 
+func SaveToJSON(filePath string, v interface{}) error {
+	if witness, ok := v.(witness.Witness); ok {
+		rawVector, ok := witness.Vector().(fr.Vector)
+		if !ok {
+			return fmt.Errorf("failed to assert type of publicWitness.Vector() to fr.Vector")
+		}
+
+		witnessPublicStrings := make([]string, len(rawVector))
+		for i, val := range rawVector {
+			witnessPublicStrings[i] = val.String()
+		}
+
+		return SaveToJSON(filePath, witnessPublicStrings)
+	}
+
+	jsonData, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal data to JSON: %v", err)
+	}
+
+	err = os.WriteFile(filePath, jsonData, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to save JSON file: %v", err)
+	}
+
+	return nil
+}
+
+// saveProof 保存proof到文件
 func saveProof(proof groth16.Proof, path string) error {
 	file, err := os.Create(path)
 	if err != nil {
@@ -30,6 +65,7 @@ func saveProof(proof groth16.Proof, path string) error {
 	return nil
 }
 
+// loadProof 从文件加载proof
 func loadProof(path string) (groth16.Proof, error) {
 	file, err := os.Open(path)
 	if err != nil {
@@ -50,6 +86,7 @@ func loadProof(path string) (groth16.Proof, error) {
 	return proof, nil
 }
 
+// saveCcs 保存r1cs到文件
 func saveCcs(ccs constraint.ConstraintSystem, path string) error {
 	file, err := os.Create(path)
 	if err != nil {
@@ -70,7 +107,9 @@ func saveCcs(ccs constraint.ConstraintSystem, path string) error {
 	return nil
 }
 
+// saveKeys 保存proving key和verification key
 func saveKeys(pk groth16.ProvingKey, vk groth16.VerifyingKey, pkPath, vkPath string) error {
+	// 保存 proving key
 	pkFile, err := os.Create(pkPath)
 	if err != nil {
 		return fmt.Errorf("failed to create pk file: %w", err)
@@ -87,6 +126,7 @@ func saveKeys(pk groth16.ProvingKey, vk groth16.VerifyingKey, pkPath, vkPath str
 		return fmt.Errorf("failed to write pk: %w", err)
 	}
 
+	// 保存 verification key
 	vkFile, err := os.Create(vkPath)
 	if err != nil {
 		return fmt.Errorf("failed to create vk file: %w", err)
@@ -106,7 +146,9 @@ func saveKeys(pk groth16.ProvingKey, vk groth16.VerifyingKey, pkPath, vkPath str
 	return nil
 }
 
+// loadKeys 加载proving key和verification key
 func loadKeys(pkPath, vkPath string) (groth16.ProvingKey, groth16.VerifyingKey, error) {
+	// 加载 proving key
 	pkFile, err := os.Open(pkPath)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to open pk file: %w", err)
@@ -124,6 +166,7 @@ func loadKeys(pkPath, vkPath string) (groth16.ProvingKey, groth16.VerifyingKey, 
 		return nil, nil, fmt.Errorf("failed to read pk: %w", err)
 	}
 
+	// 加载 verification key
 	vkFile, err := os.Open(vkPath)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to open vk file: %w", err)
@@ -144,41 +187,57 @@ func loadKeys(pkPath, vkPath string) (groth16.ProvingKey, groth16.VerifyingKey, 
 	return pk, vk, nil
 }
 
-type ZKRiskNeutralCircuit struct {
-	Leverage        frontend.Variable `gnark:"leverage"`
-	DeltaMax        frontend.Variable `gnark:"deltaMax"`
-	DeltaMin        frontend.Variable `gnark:"deltaMin"`
-	LeverageUpper   frontend.Variable `gnark:"leverageUpper,public"`
-	DeltaUpper      frontend.Variable `gnark:"deltaUpper,public"`
-	LeverageConfirm frontend.Variable `gnark:"leverageConfirm,public"`
-	DeltaConfirm    frontend.Variable `gnark:"deltaConfirm,public"`
+type ZbFrCircuit struct {
+	Leverage       frontend.Variable
+	DeltaSpot      frontend.Variable
+	DeltaPerpLong  frontend.Variable
+	DeltaPerpShort frontend.Variable
+	LeverageUpper  frontend.Variable `gnark:",public"`
+	DeltaUpper     frontend.Variable `gnark:",public"`
+	ProjectId      frontend.Variable `gnark:",public"`
 }
 
-func (circuit *ZKRiskNeutralCircuit) Define(api frontend.API) error {
+func (circuit *ZbFrCircuit) Define(api frontend.API) error {
 
-	api.AssertIsLessOrEqual(circuit.DeltaMin, circuit.DeltaMax)
-	api.AssertIsLessOrEqual(0, circuit.DeltaMin)
+	api.AssertIsEqual(circuit.ProjectId, frontend.Variable(10005))
 
-	api.AssertIsLessOrEqual(circuit.DeltaUpper, 100)
-	api.AssertIsLessOrEqual(0, circuit.DeltaUpper)
+	deltaCheck := cmp.NewBoundedComparator(api, big.NewInt(math.MaxInt64), false)
 
-	api.AssertIsLessOrEqual(0, circuit.LeverageUpper)
-	api.AssertIsLessOrEqual(circuit.LeverageUpper, 100)
+	deltaCheck.AssertIsLessEq(frontend.Variable(0), circuit.DeltaSpot)
+	deltaCheck.AssertIsLessEq(frontend.Variable(0), circuit.DeltaPerpLong)
+	deltaCheck.AssertIsLessEq(circuit.DeltaPerpShort, frontend.Variable(0))
 
-	api.AssertIsLessOrEqual(0, circuit.Leverage)
+	percent := cmp.NewBoundedComparator(api, big.NewInt(100), false)
 
-	api.AssertIsEqual(api.Cmp(circuit.Leverage, circuit.LeverageUpper), circuit.LeverageConfirm)
+	api.AssertIsLessOrEqual(circuit.DeltaUpper, frontend.Variable(100))
+	percent.AssertIsLessEq(frontend.Variable(0), circuit.DeltaUpper)
 
-	r1 := api.Sub(circuit.DeltaMax, circuit.DeltaMin)
-	r2 := api.Mul(r1, 100)
-	r3 := api.Mul(circuit.DeltaUpper, circuit.DeltaMax)
-	api.AssertIsEqual(api.Cmp(r2, r3), circuit.DeltaConfirm)
+	api.AssertIsLessOrEqual(circuit.LeverageUpper, frontend.Variable(100))
+	percent.AssertIsLessEq(frontend.Variable(0), circuit.LeverageUpper)
+
+	percent.AssertIsLessEq(frontend.Variable(1), circuit.Leverage)
+
+	api.AssertIsDifferent(api.Cmp(circuit.Leverage, circuit.LeverageUpper), frontend.Variable(1))
+
+	deltaCheck.AssertIsLessEq(api.Add(circuit.DeltaPerpLong, circuit.DeltaPerpShort), frontend.Variable(0))
+
+	net := api.Add(circuit.DeltaPerpLong, circuit.DeltaPerpShort)
+
+	boolHelper := api.IsZero(api.Add(api.Cmp(api.Neg(net), circuit.DeltaSpot), 1))
+
+	max := api.Select(boolHelper, circuit.DeltaSpot, api.Neg(net))
+
+	r1 := api.Select(boolHelper, api.Add(circuit.DeltaPerpLong, circuit.DeltaPerpShort, circuit.DeltaSpot), api.Neg(api.Add(circuit.DeltaPerpLong, circuit.DeltaPerpShort, circuit.DeltaSpot))) // abs(long + short + spot)
+
+	r2 := api.Mul(r1, frontend.Variable(100))
+	r3 := api.Mul(circuit.DeltaUpper, max)
+	api.AssertIsDifferent(api.Cmp(r2, r3), frontend.Variable(1))
 	return nil
 }
 
 func main() {
 
-	var circuit ZKRiskNeutralCircuit
+	var circuit ZbFrCircuit
 	ccs, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &circuit)
 	if err != nil {
 		panic(fmt.Errorf("compile error: %w", err))
@@ -200,7 +259,14 @@ func main() {
 	}
 	fmt.Println("Keys saved successfully")
 
-	assignment := ZKRiskNeutralCircuit{1, 100, 99, 3, 5, -1, -1}
+	err = SaveToJSON("vk.json", vk)
+	if err != nil {
+		fmt.Println("Error saving VK to JSON:", err)
+		return
+	}
+
+	assignment := ZbFrCircuit{1, 0, 0, 0, 3, 5, 10005}
+
 	witness, err := frontend.NewWitness(&assignment, ecc.BN254.ScalarField())
 	if err != nil {
 		panic(fmt.Errorf("witness error: %w", err))
@@ -210,8 +276,10 @@ func main() {
 	if err != nil {
 		panic(fmt.Errorf("public witness error: %w", err))
 	}
+	fmt.Println("Public witness:", publicWitness.Vector().(fr.Vector))
 
 	proof, err := groth16.Prove(ccs, pk, witness)
+
 	if err != nil {
 		panic(fmt.Errorf("prove error: %w", err))
 	}
