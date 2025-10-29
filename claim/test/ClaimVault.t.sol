@@ -79,8 +79,8 @@ contract ClaimVaultTest is Test {
     address internal signerAddr;
 
     uint256 internal defaultEpochDuration = 1 hours;
-    uint256 internal defaultGlobalCap = 3_000_000 ether;
-    uint256 internal defaultUserCap = 100_000 ether;
+    uint256 internal defaultGlobalCap = 100_000 ether;
+    uint256 internal defaultUserCap = 50_000 ether;
 
     function setUp() public {
         vm.createSelectFork(
@@ -126,7 +126,7 @@ contract ClaimVaultTest is Test {
     }
 
     function _currentEpochId() internal view returns (uint256) {
-        return block.timestamp / vault.epochDuration();
+        return (block.timestamp - vault.startClaimTimestamp()) / vault.epochDuration();
     }
 
     function test_Claim_Succeeds_BalancesCapsNonceAndEvent() public {
@@ -145,7 +145,7 @@ contract ClaimVaultTest is Test {
 
         // Expect event
         vm.expectEmit(true, true, false, true, address(vault));
-        emit ClaimVault.Claimed(user1, amount);
+        emit ClaimVault.Claimed(user1, amount, block.timestamp - defaultEpochDuration, defaultEpochDuration, nonce);
 
         // Call as user1
         vm.prank(user1);
@@ -157,8 +157,8 @@ contract ClaimVaultTest is Test {
 
         // Caps updated
         uint256 epochId = _currentEpochId();
-        assertEq(vault.claimedByEpoch(epochId), amount);
-        assertEq(vault.userClaimedByEpoch(user1, epochId), amount);
+        assertEq(vault.claimedByEpoch(defaultEpochDuration,epochId), amount);
+        assertEq(vault.userClaimedByEpoch(defaultEpochDuration,user1, epochId), amount);
 
         // Nonce incremented
         assertEq(vault.userNonce(user1), nonce + 1);
@@ -295,7 +295,7 @@ contract ClaimVaultTest is Test {
         vm.stopPrank();
 
         uint256 epochId = _currentEpochId();
-        assertEq(vault.claimedByEpoch(epochId), 0);
+        assertEq(vault.claimedByEpoch(defaultEpochDuration,epochId), 0);
 
         // user1 claims 900
         {
@@ -438,8 +438,8 @@ contract ClaimVaultTest is Test {
 
         // Check the two epoch buckets
         uint256 epochNow = _currentEpochId();
-        assertEq(vault.userClaimedByEpoch(user1, epochNow), amount);
-        assertEq(vault.userClaimedByEpoch(user1, epochNow - 1), amount);
+        assertEq(vault.userClaimedByEpoch(defaultEpochDuration,user1, epochNow), amount);
+        assertEq(vault.userClaimedByEpoch(defaultEpochDuration,user1, epochNow - 1), amount);
     }
 
     function test_InsufficientBalance_Reverts() public {

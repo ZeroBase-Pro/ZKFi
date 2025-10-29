@@ -13,20 +13,27 @@ contract ClaimVault is Ownable, Pausable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     IERC20 public immutable ZBT;
-
-    address public signer; 
+    uint256 public immutable startClaimTimestamp;
+    address public signer;
 
     mapping(address user => uint256 nonce) public userNonce;
 
     uint256 public epochDuration = 1 hours;
-    uint256 public globalCapPerEpoch = 3_000_000 ether;
-    uint256 public userCapPerEpoch = 100_000 ether;
+    uint256 public globalCapPerEpoch = 100_000 ether;
+    uint256 public userCapPerEpoch = 50_000 ether;
 
-    mapping(uint256 epochId => uint256 claimedAmount) public claimedByEpoch; 
-    mapping(address user => mapping(uint256 epochId => uint256 claimedAmount)) public userClaimedByEpoch; 
+    mapping(uint256 epochDuration => mapping(uint256 epochId => uint256 claimedAmount))
+        public claimedByEpoch;
+    mapping(uint256 epochDuration => mapping(address user => mapping(uint256 epochId => uint256 claimedAmount)))
+        public userClaimedByEpoch;
 
-    
-    event Claimed(address indexed user, uint256 indexed amount);
+    event Claimed(
+        address indexed user,
+        uint256 indexed amount,
+        uint256 indexed epochId,
+        uint256 currentEpochDuration,
+        uint256 userNonce
+    );
     event EmergencyWithdrawal(
         address indexed _token,
         address indexed _receiver
@@ -41,6 +48,7 @@ contract ClaimVault is Ownable, Pausable, ReentrancyGuard {
     constructor(address _ZBT, address _signer) Ownable(msg.sender) {
         ZBT = IERC20(_ZBT);
         signer = _signer;
+        startClaimTimestamp = block.timestamp;
     }
 
     function Claim(
@@ -76,15 +84,17 @@ contract ClaimVault is Ownable, Pausable, ReentrancyGuard {
             userNonce[msg.sender] = currentUserNonce + 1;
         }
 
-        uint256 epochId = block.timestamp / epochDuration;
+        uint256 epochId = currentEpochId();
 
-        uint256 globalUsed = claimedByEpoch[epochId];
+        uint256 globalUsed = claimedByEpoch[epochDuration][epochId];
         require(
             globalUsed + claimAmount <= globalCapPerEpoch,
             "Global cap exceeded"
         );
 
-        uint256 userUsed = userClaimedByEpoch[msg.sender][epochId];
+        uint256 userUsed = userClaimedByEpoch[epochDuration][msg.sender][
+            epochId
+        ];
         require(userUsed + claimAmount <= userCapPerEpoch, "User cap exceeded");
 
         require(
@@ -93,12 +103,18 @@ contract ClaimVault is Ownable, Pausable, ReentrancyGuard {
         );
 
         unchecked {
-            claimedByEpoch[epochId] = globalUsed + claimAmount;
-            userClaimedByEpoch[msg.sender][epochId] = userUsed + claimAmount;
+            claimedByEpoch[epochDuration][epochId] = globalUsed + claimAmount;
+            userClaimedByEpoch[epochDuration][msg.sender][epochId] =
+                userUsed +
+                claimAmount;
         }
 
         ZBT.safeTransfer(msg.sender, claimAmount);
-        emit Claimed(msg.sender, claimAmount);
+        emit Claimed(msg.sender, claimAmount, epochId, epochDuration , currentUserNonce);
+    }
+
+    function currentEpochId() public view returns (uint256) {
+        return (block.timestamp - startClaimTimestamp) / epochDuration;
     }
 
     function calculateClaimZBTHash(
