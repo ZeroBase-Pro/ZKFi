@@ -163,7 +163,7 @@ contract ClaimVaultTest is Test {
 
         // Call as user1
         vm.prank(user1);
-        vault.Claim(user1, amount, expiry, sig);
+        vault.claim(user1, amount, expiry, sig);
 
         // Check balances
         assertEq(token.balanceOf(user1), amount);
@@ -195,12 +195,12 @@ contract ClaimVaultTest is Test {
 
         // First claim ok
         vm.prank(user1);
-        vault.Claim(user1, amount, expiry, sig);
+        vault.claim(user1, amount, expiry, sig);
 
         // Replay the exact same signature should fail (nonce consumed)
         vm.expectRevert();
         vm.prank(user1);
-        vault.Claim(user1, amount, expiry, sig);
+        vault.claim(user1, amount, expiry, sig);
     }
 
     function test_WrongSigner_Reverts_InvalidSignature() public {
@@ -222,7 +222,7 @@ contract ClaimVaultTest is Test {
 
         vm.expectRevert();
         vm.prank(user1);
-        vault.Claim(user1, amount, expiry, badSig);
+        vault.claim(user1, amount, expiry, badSig);
     }
 
     function test_ChainId_Mismatch_Reverts_InvalidSignature() public {
@@ -245,7 +245,7 @@ contract ClaimVaultTest is Test {
 
         vm.expectRevert();
         vm.prank(user1);
-        vault.Claim(user1, amount, expiry, sig);
+        vault.claim(user1, amount, expiry, sig);
 
         // Restore chainId for subsequent tests
         vm.chainId(signedChainId);
@@ -267,7 +267,7 @@ contract ClaimVaultTest is Test {
         // msg.sender != user parameter: pass user1, call from user2
         vm.expectRevert();
         vm.prank(user2);
-        vault.Claim(user1, amount, expiry, sig);
+        vault.claim(user1, amount, expiry, sig);
     }
 
     function test_Revert_ZeroAmount() public {
@@ -285,7 +285,7 @@ contract ClaimVaultTest is Test {
 
         vm.expectRevert();
         vm.prank(user1);
-        vault.Claim(user1, amount, expiry, sig);
+        vault.claim(user1, amount, expiry, sig);
     }
 
     function test_Revert_ExpiredSignature() public {
@@ -303,7 +303,7 @@ contract ClaimVaultTest is Test {
 
         vm.expectRevert();
         vm.prank(user1);
-        vault.Claim(user1, amount, expiry, sig);
+        vault.claim(user1, amount, expiry, sig);
     }
 
     function test_GlobalCap_Exceeded_Reverts() public {
@@ -327,7 +327,7 @@ contract ClaimVaultTest is Test {
                 block.chainid
             );
             vm.prank(user1);
-            vault.Claim(user1, amount, expiry, sig);
+            vault.claim(user1, amount, expiry, sig);
         }
 
         // user2 tries to claim 200 (would exceed 1,000)
@@ -345,7 +345,7 @@ contract ClaimVaultTest is Test {
 
             vm.expectRevert();
             vm.prank(user2);
-            vault.Claim(user2, amount, expiry, sig);
+            vault.claim(user2, amount, expiry, sig);
         }
     }
 
@@ -371,7 +371,7 @@ contract ClaimVaultTest is Test {
                 block.chainid
             );
             vm.prank(user1);
-            vault.Claim(user1, amount, expiry, sig);
+            vault.claim(user1, amount, expiry, sig);
         }
 
         // Second claim 300 (would exceed 1,000 per-user)
@@ -389,7 +389,7 @@ contract ClaimVaultTest is Test {
 
             vm.expectRevert();
             vm.prank(user1);
-            vault.Claim(user1, amount, expiry, sig);
+            vault.claim(user1, amount, expiry, sig);
         }
     }
 
@@ -414,7 +414,7 @@ contract ClaimVaultTest is Test {
         );
 
         vm.prank(user1);
-        vault.Claim(user1, amount, expiry, sig);
+        vault.claim(user1, amount, expiry, sig);
 
         // Same epoch: next 1 wei should fail
         {
@@ -431,7 +431,7 @@ contract ClaimVaultTest is Test {
 
             vm.expectRevert();
             vm.prank(user1);
-            vault.Claim(user1, amt2, exp2, sig2);
+            vault.claim(user1, amt2, exp2, sig2);
         }
 
         vm.warp(block.timestamp + vault.epochDuration());
@@ -445,7 +445,7 @@ contract ClaimVaultTest is Test {
         );
 
         vm.startPrank(user1);
-        vault.Claim(
+        vault.claim(
             user1,
             amount,
             block.timestamp + vault.epochDuration() + 600,
@@ -485,7 +485,7 @@ contract ClaimVaultTest is Test {
 
         vm.expectRevert();
         vm.prank(user1);
-        vault.Claim(user1, amount, expiry, sig);
+        vault.claim(user1, amount, expiry, sig);
     }
 
     function test_Pause_Unpause() public {
@@ -506,14 +506,14 @@ contract ClaimVaultTest is Test {
 
         vm.expectRevert();
         vm.prank(user1);
-        vault.Claim(user1, amount, expiry, sig);
+        vault.claim(user1, amount, expiry, sig);
 
         // Unpause and try again
         vm.prank(owner);
         vault.unpause();
 
         vm.prank(user1);
-        vault.Claim(user1, amount, expiry, sig);
+        vault.claim(user1, amount, expiry, sig);
 
         assertEq(token.balanceOf(user1), amount);
     }
@@ -542,7 +542,7 @@ contract ClaimVaultTest is Test {
 
         vm.expectRevert();
         vm.prank(user1);
-        vault.Claim(user1, amount, expiry, oldSig);
+        vault.claim(user1, amount, expiry, oldSig);
     }
 
     function test_SetEpochConfig_Validations_And_Event() public {
@@ -573,12 +573,10 @@ contract ClaimVaultTest is Test {
 
         vm.prank(owner);
         vm.expectRevert();
-
         vault.setEpochConfig(1 hours, 100, 0);
 
         vm.prank(owner);
         vm.expectRevert();
-
         vault.setEpochConfig(1 hours, 100, 200);
     }
 

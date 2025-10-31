@@ -216,7 +216,7 @@ contract ClaimVault is Ownable, Pausable, ReentrancyGuard {
      * @param expiry Signature expiry timestamp (must be > block.timestamp).
      * @param signature Signer's signature.
      */
-    function Claim(
+    function claim(
         address user,
         uint256 claimAmount,
         uint256 expiry,
