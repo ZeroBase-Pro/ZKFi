@@ -14,6 +14,7 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
  * @notice Immediate token claims authorized by an off-chain signer with per-epoch global/user caps.
  * @dev Uses personal-sign style hashing with explicit contract address in the payload.
  *      Protected by Pausable and ReentrancyGuard.
+ * @custom:security-contact steam@zerobase.pro
  */
 contract ClaimVault is Ownable, Pausable, ReentrancyGuard {
     using SafeERC20 for IERC20;
