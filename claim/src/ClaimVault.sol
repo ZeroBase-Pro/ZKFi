@@ -215,7 +215,7 @@ contract ClaimVault is Ownable, Pausable, ReentrancyGuard {
     function _checkSignature(
         bytes32 digestHash,
         bytes memory signature
-    ) internal view returns (bool result) {
+    ) private view returns (bool result) {
         address recovered = ECDSA.recover(digestHash, signature);
         result = recovered == signer;
     }
