@@ -122,7 +122,7 @@ contract ClaimVault is Ownable, Pausable, ReentrancyGuard {
         require(claimAmount != 0, "Zero ZBT number");
         require(user == msg.sender, "Invalid sender");
         require(expiry > block.timestamp, "Signature expired");
-
+        uint256 currentEpochDuration = epochDuration;
         uint256 currentUserNonce = userNonce[msg.sender];
 
         uint256 chainId;
@@ -148,13 +148,13 @@ contract ClaimVault is Ownable, Pausable, ReentrancyGuard {
 
         uint256 epochId = currentEpochId();
 
-        uint256 globalUsed = claimedByEpoch[epochDuration][epochId];
+        uint256 globalUsed = claimedByEpoch[currentEpochDuration][epochId];
         require(
             globalUsed + claimAmount <= globalCapPerEpoch,
             "Global cap exceeded"
         );
 
-        uint256 userUsed = userClaimedByEpoch[epochDuration][msg.sender][
+        uint256 userUsed = userClaimedByEpoch[currentEpochDuration][msg.sender][
             epochId
         ];
         require(userUsed + claimAmount <= userCapPerEpoch, "User cap exceeded");
@@ -165,14 +165,14 @@ contract ClaimVault is Ownable, Pausable, ReentrancyGuard {
         );
 
         unchecked {
-            claimedByEpoch[epochDuration][epochId] = globalUsed + claimAmount;
-            userClaimedByEpoch[epochDuration][msg.sender][epochId] =
+            claimedByEpoch[currentEpochDuration][epochId] = globalUsed + claimAmount;
+            userClaimedByEpoch[currentEpochDuration][msg.sender][epochId] =
                 userUsed +
                 claimAmount;
         }
 
         ZBT.safeTransfer(msg.sender, claimAmount);
-        emit Claimed(msg.sender, claimAmount, epochId, epochDuration , currentUserNonce);
+        emit Claimed(msg.sender, claimAmount, epochId, currentEpochDuration , currentUserNonce);
     }
 
     /**
