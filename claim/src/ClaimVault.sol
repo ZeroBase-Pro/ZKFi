@@ -242,11 +242,6 @@ contract ClaimVault is Ownable, Pausable, ReentrancyGuard {
         ];
         require(userUsed + claimAmount <= userCapPerEpoch, "User cap exceeded");
 
-        require(
-            ZBT.balanceOf(address(this)) >= claimAmount,
-            "Insufficient Balance"
-        );
-
         unchecked {
             claimedByEpoch[currentEpochDuration][epochId] =
                 globalUsed +
