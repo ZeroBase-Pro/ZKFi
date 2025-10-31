@@ -123,9 +123,9 @@ contract ClaimVault is Ownable, Pausable, ReentrancyGuard {
         uint256 _userNonce,
         uint256 _chainid,
         uint256 _expiry
-    ) public pure returns (bytes32) {
+    ) public view returns (bytes32) {
         bytes32 userClaimZBTStructHash = keccak256(
-            abi.encode(_user, _claimAmount, _userNonce, _chainid, _expiry)
+            abi.encode(_user, _claimAmount, _userNonce, _chainid, _expiry, address(this))
         );
         return MessageHashUtils.toEthSignedMessageHash(userClaimZBTStructHash);
     }
