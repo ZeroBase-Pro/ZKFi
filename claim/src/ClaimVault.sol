@@ -93,10 +93,27 @@ contract ClaimVault is Ownable, Pausable, ReentrancyGuard {
         uint256 userCapPerEpoch
     );
 
+    // --- Custom Errors ---
+    error ZeroAmount();
+    error InvalidSender();
+    error SignatureExpired();
+    error InvalidSignature();
+    error TokenZeroAddress();
+    error ReceiverZeroAddress();
+    error SignerZeroAddress();
+    error EpochDurationZero();
+    error GlobalCapZero();
+    error UserCapInvalid();
+    error GlobalCapExceeded();
+    error UserCapExceeded();
+
     /**
      * @notice Initializes the vault.
      * @param _ZBT Token address to manage.
      * @param _signer Off-chain signer that authorizes claims.
+     * @param _epochDuration Epoch length (seconds).
+     * @param _globalCapPerEpoch Global cap per epoch.
+     * @param _userCapPerEpoch Per-user cap per epoch.
      */
     constructor(
         address _ZBT,
@@ -112,7 +129,11 @@ contract ClaimVault is Ownable, Pausable, ReentrancyGuard {
         globalCapPerEpoch = _globalCapPerEpoch;
         userCapPerEpoch = _userCapPerEpoch;
         emit UpdateSigner(address(0), _signer);
-        emit UpdateEpochConfig(_epochDuration, _globalCapPerEpoch, _userCapPerEpoch);
+        emit UpdateEpochConfig(
+            _epochDuration,
+            _globalCapPerEpoch,
+            _userCapPerEpoch
+        );
     }
 
     /**
@@ -124,8 +145,8 @@ contract ClaimVault is Ownable, Pausable, ReentrancyGuard {
         address _token,
         address _receiver
     ) external onlyOwner {
-        require(_token != address(0), "Token must not be zero");
-        require(_receiver != address(0), "Receiver must not be zero");
+        require(_token != address(0), TokenZeroAddress());
+        require(_receiver != address(0), ReceiverZeroAddress());
 
         IERC20(_token).safeTransfer(
             _receiver,
@@ -139,7 +160,7 @@ contract ClaimVault is Ownable, Pausable, ReentrancyGuard {
      * @param _newSigner New signer (must be non-zero).
      */
     function setSigner(address _newSigner) external onlyOwner {
-        require(_newSigner != address(0), "Signer must not be zero");
+        require(_newSigner != address(0), SignerZeroAddress());
         address oldSigner = signer;
         signer = _newSigner;
         emit UpdateSigner(oldSigner, _newSigner);
@@ -157,15 +178,14 @@ contract ClaimVault is Ownable, Pausable, ReentrancyGuard {
         uint256 _globalCapPerEpoch,
         uint256 _userCapPerEpoch
     ) external onlyOwner {
-        require(_epochDuration > 0, "epochDuration can not be zero");
-        require(
-            _globalCapPerEpoch > 0,
-            "globalCapPerEpoch must greater than zero"
-        );
+        require(_epochDuration > 0, EpochDurationZero());
+        require(_globalCapPerEpoch > 0, GlobalCapZero());
+
         require(
             _userCapPerEpoch > 0 && _userCapPerEpoch <= _globalCapPerEpoch,
-            "_userCapPerEpoch must greater than zero and less than _globalCapPerEpoch"
+            UserCapInvalid()
         );
+
         epochDuration = _epochDuration;
         globalCapPerEpoch = _globalCapPerEpoch;
         userCapPerEpoch = _userCapPerEpoch;
@@ -202,9 +222,10 @@ contract ClaimVault is Ownable, Pausable, ReentrancyGuard {
         uint256 expiry,
         bytes calldata signature
     ) external whenNotPaused nonReentrant {
-        require(claimAmount != 0, "Zero ZBT number");
-        require(user == msg.sender, "Invalid sender");
-        require(expiry > block.timestamp, "Signature expired");
+        require(claimAmount != 0, ZeroAmount());
+        require(user == msg.sender, InvalidSender());
+        require(expiry > block.timestamp, SignatureExpired());
+
         uint256 currentEpochDuration = epochDuration;
         uint256 currentUserNonce = userNonce[msg.sender];
 
@@ -223,8 +244,9 @@ contract ClaimVault is Ownable, Pausable, ReentrancyGuard {
 
         require(
             _checkSignature(claimDigestHash, signature),
-            "Invalid signature"
+            InvalidSignature()
         );
+
         unchecked {
             userNonce[msg.sender] = currentUserNonce + 1;
         }
@@ -234,13 +256,13 @@ contract ClaimVault is Ownable, Pausable, ReentrancyGuard {
         uint256 globalUsed = claimedByEpoch[currentEpochDuration][epochId];
         require(
             globalUsed + claimAmount <= globalCapPerEpoch,
-            "Global cap exceeded"
+            GlobalCapExceeded()
         );
 
         uint256 userUsed = userClaimedByEpoch[currentEpochDuration][msg.sender][
             epochId
         ];
-        require(userUsed + claimAmount <= userCapPerEpoch, "User cap exceeded");
+        require(userUsed + claimAmount <= userCapPerEpoch, UserCapExceeded());
 
         unchecked {
             claimedByEpoch[currentEpochDuration][epochId] =
@@ -312,5 +334,4 @@ contract ClaimVault is Ownable, Pausable, ReentrancyGuard {
         address recovered = ECDSA.recover(digestHash, signature);
         result = recovered == signer;
     }
-
 }
