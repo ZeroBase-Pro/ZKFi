@@ -32,13 +32,13 @@ contract ClaimVault is Ownable, Pausable, ReentrancyGuard {
     mapping(address user => uint256 nonce) public userNonce;
 
     /// @notice Epoch length in seconds.
-    uint256 public epochDuration = 1 hours;
+    uint256 public epochDuration;
 
     /// @notice Max total claimed per epoch across all users.
-    uint256 public globalCapPerEpoch = 100_000 ether;
+    uint256 public globalCapPerEpoch;
 
     /// @notice Max total claimed per epoch for a single user.
-    uint256 public userCapPerEpoch = 50_000 ether;
+    uint256 public userCapPerEpoch;
 
     /// @notice Global claimed amounts: epochDuration => epochId => amount.
     mapping(uint256 epochDuration => mapping(uint256 epochId => uint256 claimedAmount))
@@ -98,10 +98,21 @@ contract ClaimVault is Ownable, Pausable, ReentrancyGuard {
      * @param _ZBT Token address to manage.
      * @param _signer Off-chain signer that authorizes claims.
      */
-    constructor(address _ZBT, address _signer) Ownable(msg.sender) {
+    constructor(
+        address _ZBT,
+        address _signer,
+        uint256 _epochDuration,
+        uint256 _globalCapPerEpoch,
+        uint256 _userCapPerEpoch
+    ) Ownable(msg.sender) {
         ZBT = IERC20(_ZBT);
         signer = _signer;
         startClaimTimestamp = block.timestamp;
+        epochDuration = _epochDuration;
+        globalCapPerEpoch = _globalCapPerEpoch;
+        userCapPerEpoch = _userCapPerEpoch;
+        emit UpdateSigner(address(0), _signer);
+        emit UpdateEpochConfig(_epochDuration, _globalCapPerEpoch, _userCapPerEpoch);
     }
 
     /**
@@ -237,14 +248,22 @@ contract ClaimVault is Ownable, Pausable, ReentrancyGuard {
         );
 
         unchecked {
-            claimedByEpoch[currentEpochDuration][epochId] = globalUsed + claimAmount;
+            claimedByEpoch[currentEpochDuration][epochId] =
+                globalUsed +
+                claimAmount;
             userClaimedByEpoch[currentEpochDuration][msg.sender][epochId] =
                 userUsed +
                 claimAmount;
         }
 
         ZBT.safeTransfer(msg.sender, claimAmount);
-        emit Claimed(msg.sender, claimAmount, epochId, currentEpochDuration , currentUserNonce);
+        emit Claimed(
+            msg.sender,
+            claimAmount,
+            epochId,
+            currentEpochDuration,
+            currentUserNonce
+        );
     }
 
     /**
@@ -273,7 +292,14 @@ contract ClaimVault is Ownable, Pausable, ReentrancyGuard {
         uint256 _expiry
     ) public view returns (bytes32) {
         bytes32 userClaimZBTStructHash = keccak256(
-            abi.encode(_user, _claimAmount, _userNonce, _chainid, _expiry, address(this))
+            abi.encode(
+                _user,
+                _claimAmount,
+                _userNonce,
+                _chainid,
+                _expiry,
+                address(this)
+            )
         );
         return MessageHashUtils.toEthSignedMessageHash(userClaimZBTStructHash);
     }
