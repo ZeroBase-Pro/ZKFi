@@ -104,6 +104,77 @@ contract ClaimVault is Ownable, Pausable, ReentrancyGuard {
     }
 
     /**
+     * @notice Owner-only emergency token sweep.
+     * @param _token Token address to withdraw.
+     * @param _receiver Recipient of the withdrawn balance.
+     */
+    function emergencyWithdraw(
+        address _token,
+        address _receiver
+    ) external onlyOwner {
+        require(_token != address(0), "Token must not be zero");
+        require(_receiver != address(0), "Receiver must not be zero");
+
+        IERC20(_token).safeTransfer(
+            _receiver,
+            IERC20(_token).balanceOf(address(this))
+        );
+        emit EmergencyWithdrawal(_token, _receiver);
+    }
+
+    /**
+     * @notice Updates the signer address.
+     * @param _newSigner New signer (must be non-zero).
+     */
+    function setSigner(address _newSigner) external onlyOwner {
+        require(_newSigner != address(0), "Signer must not be zero");
+        address oldSigner = signer;
+        signer = _newSigner;
+        emit UpdateSigner(oldSigner, _newSigner);
+    }
+
+    /**
+     * @notice Updates epoch length and caps.
+     * @dev Per-user cap must be > 0 and <= global cap.
+     * @param _epochDuration Epoch length in seconds.
+     * @param _globalCapPerEpoch Global cap per epoch.
+     * @param _userCapPerEpoch Per-user cap per epoch.
+     */
+    function setEpochConfig(
+        uint256 _epochDuration,
+        uint256 _globalCapPerEpoch,
+        uint256 _userCapPerEpoch
+    ) external onlyOwner {
+        require(_epochDuration > 0, "epochDuration can not be zero");
+        require(
+            _globalCapPerEpoch > 0,
+            "globalCapPerEpoch must greater than zero"
+        );
+        require(
+            _userCapPerEpoch > 0 && _userCapPerEpoch <= _globalCapPerEpoch,
+            "_userCapPerEpoch must greater than zero and less than _globalCapPerEpoch"
+        );
+        epochDuration = _epochDuration;
+        globalCapPerEpoch = _globalCapPerEpoch;
+        userCapPerEpoch = _userCapPerEpoch;
+        emit UpdateEpochConfig(
+            _epochDuration,
+            _globalCapPerEpoch,
+            _userCapPerEpoch
+        );
+    }
+
+    /// @notice Pauses claiming (owner-only).
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    /// @notice Unpauses claiming (owner-only).
+    function unpause() external onlyOwner {
+        _unpause();
+    }
+
+    /**
      * @notice Claim tokens immediately using a valid off-chain signature.
      * @dev Verifies signature over (user, amount, nonce, chainId, expiry, address(this)).
      *      Increments user nonce after successful verification.
@@ -220,74 +291,4 @@ contract ClaimVault is Ownable, Pausable, ReentrancyGuard {
         result = recovered == signer;
     }
 
-    /**
-     * @notice Owner-only emergency token sweep.
-     * @param _token Token address to withdraw.
-     * @param _receiver Recipient of the withdrawn balance.
-     */
-    function emergencyWithdraw(
-        address _token,
-        address _receiver
-    ) external onlyOwner {
-        require(_token != address(0), "Token must not be zero");
-        require(_receiver != address(0), "Receiver must not be zero");
-
-        IERC20(_token).safeTransfer(
-            _receiver,
-            IERC20(_token).balanceOf(address(this))
-        );
-        emit EmergencyWithdrawal(_token, _receiver);
-    }
-
-    /**
-     * @notice Updates the signer address.
-     * @param _newSigner New signer (must be non-zero).
-     */
-    function setSigner(address _newSigner) external onlyOwner {
-        require(_newSigner != address(0), "Signer must not be zero");
-        address oldSigner = signer;
-        signer = _newSigner;
-        emit UpdateSigner(oldSigner, _newSigner);
-    }
-
-    /**
-     * @notice Updates epoch length and caps.
-     * @dev Per-user cap must be > 0 and <= global cap.
-     * @param _epochDuration Epoch length in seconds.
-     * @param _globalCapPerEpoch Global cap per epoch.
-     * @param _userCapPerEpoch Per-user cap per epoch.
-     */
-    function setEpochConfig(
-        uint256 _epochDuration,
-        uint256 _globalCapPerEpoch,
-        uint256 _userCapPerEpoch
-    ) external onlyOwner {
-        require(_epochDuration > 0, "epochDuration can not be zero");
-        require(
-            _globalCapPerEpoch > 0,
-            "globalCapPerEpoch must greater than zero"
-        );
-        require(
-            _userCapPerEpoch > 0 && _userCapPerEpoch <= _globalCapPerEpoch,
-            "_userCapPerEpoch must greater than zero and less than _globalCapPerEpoch"
-        );
-        epochDuration = _epochDuration;
-        globalCapPerEpoch = _globalCapPerEpoch;
-        userCapPerEpoch = _userCapPerEpoch;
-        emit UpdateEpochConfig(
-            _epochDuration,
-            _globalCapPerEpoch,
-            _userCapPerEpoch
-        );
-    }
-
-    /// @notice Pauses claiming (owner-only).
-    function pause() external onlyOwner {
-        _pause();
-    }
-
-    /// @notice Unpauses claiming (owner-only).
-    function unpause() external onlyOwner {
-        _unpause();
-    }
 }
